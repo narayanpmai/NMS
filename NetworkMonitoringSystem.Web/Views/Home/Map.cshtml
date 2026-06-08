@@ -1,0 +1,337 @@
+@{
+    ViewData["Title"] = "GIS Map Monitoring";
+}
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+    .map-container-wrapper {
+        display: flex;
+        height: calc(100vh - var(--header-height) - 100px);
+        gap: 20px;
+    }
+
+    .map-sidebar {
+        width: 320px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .map-sidebar-header {
+        padding: 1.2rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .map-sidebar-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
+    .device-list-card {
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin-bottom: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .device-list-card:hover {
+        border-color: var(--primary-color);
+        background: #f8fafc;
+    }
+
+    #map {
+        flex: 1;
+        height: 100%;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        z-index: 1;
+    }
+
+    /* Leaflet custom styling */
+    .glowing-marker {
+        width: 14px !important;
+        height: 14px !important;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        margin-left: -7px !important;
+        margin-top: -7px !important;
+    }
+    .glowing-marker-online {
+        background-color: #2ec4b6;
+        box-shadow: 0 0 8px 3px rgba(46, 196, 182, 0.6);
+        animation: pulse-online 2s infinite;
+    }
+    .glowing-marker-warning {
+        background-color: #ff9f1c;
+        box-shadow: 0 0 8px 3px rgba(255, 159, 28, 0.6);
+        animation: pulse-warning 2s infinite;
+    }
+    .glowing-marker-offline {
+        background-color: #e71d36;
+        box-shadow: 0 0 8px 3px rgba(231, 29, 54, 0.6);
+        animation: pulse-offline 2s infinite;
+    }
+
+    @@keyframes pulse-online {
+        0% { box-shadow: 0 0 0 0 rgba(46, 196, 182, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(46, 196, 182, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(46, 196, 182, 0); }
+    }
+    @@keyframes pulse-warning {
+        0% { box-shadow: 0 0 0 0 rgba(255, 159, 28, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 159, 28, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 159, 28, 0); }
+    }
+    @@keyframes pulse-offline {
+        0% { box-shadow: 0 0 0 0 rgba(231, 29, 54, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(231, 29, 54, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(231, 29, 54, 0); }
+    }
+
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+</style>
+
+<div class="container-fluid py-2">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-0 fw-bold"><i class="fa-solid fa-map-location-dot me-2 text-primary"></i>GIS Map Monitoring</h4>
+            <small class="text-muted">Interactive real-time geographical layout of monitored nodes</small>
+        </div>
+        <div class="d-flex gap-2">
+            <span class="badge bg-success py-2 px-3"><i class="fa-solid fa-circle-check me-1"></i> Online</span>
+            <span class="badge bg-warning py-2 px-3 text-dark"><i class="fa-solid fa-triangle-exclamation me-1"></i> Warning</span>
+            <span class="badge bg-danger py-2 px-3"><i class="fa-solid fa-circle-exclamation me-1"></i> Offline</span>
+        </div>
+    </div>
+
+    <div class="map-container-wrapper">
+        <!-- Sidebar -->
+        <div class="map-sidebar">
+            <div class="map-sidebar-header bg-light">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" id="searchDevice" class="form-control border-start-0" placeholder="Search devices...">
+                </div>
+            </div>
+            <div class="map-sidebar-list" id="sidebarList">
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2 text-muted">Loading devices...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaflet Map -->
+        <div id="map"></div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+    <script>
+        let map;
+        let deviceMarkers = {};
+        let devicesData = [];
+
+        // Initialize Map
+        function initMap() {
+            // Default center around Nepal
+            map = L.map('map', {
+                zoomControl: true,
+                maxZoom: 18,
+                minZoom: 2
+            }).setView([28.3949, 84.1240], 7);
+
+            // Sleek CartoDB Dark tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            }).addTo(map);
+        }
+
+        // Fetch & Populate Devices
+        function loadMapData() {
+            fetch('/Home/GetMapData')
+                .then(res => res.json())
+                .then(data => {
+                    devicesData = data;
+                    renderMapMarkers();
+                    renderSidebar();
+
+                    // Auto-adjust view to fit all markers if any exist
+                    if (data.length > 0) {
+                        const group = new L.featureGroup(Object.values(deviceMarkers));
+                        map.fitBounds(group.getBounds().pad(0.15));
+                    }
+                })
+                .catch(err => {
+                    console.error("Error loading map coordinates:", err);
+                    document.getElementById('sidebarList').innerHTML = `<div class="alert alert-danger small">Failed to load device coordinates</div>`;
+                });
+        }
+
+        // Generate Marker Popup HTML
+        function getPopupHtml(d) {
+            const statusBadge = d.status === 'Online' ? 'success' : d.status === 'Offline' ? 'danger' : 'warning';
+            return `
+                <div class="p-1" style="width: 200px;">
+                    <h6 class="fw-bold mb-1">${d.name}</h6>
+                    <span class="badge bg-${statusBadge} mb-2">${d.status}</span>
+                    <table class="table table-sm table-borderless mb-0 text-muted" style="font-size: 11px;">
+                        <tr><td class="p-0 py-1">IP Address:</td><td class="font-monospace text-dark p-0 py-1 text-end">${d.ipAddress}</td></tr>
+                        <tr><td class="p-0 py-1">Location:</td><td class="text-dark p-0 py-1 text-end">${d.locationName}</td></tr>
+                        <tr><td class="p-0 py-1">Latency:</td><td class="fw-bold text-dark p-0 py-1 text-end">${d.responseTime.toFixed(0)} ms</td></tr>
+                        <tr>
+                            <td class="p-0 py-1">CPU Usage:</td>
+                            <td class="p-0 py-1 text-end">
+                                <div class="progress d-inline-flex align-items-center" style="height: 6px; width: 60px; margin-right: 5px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: ${d.cpuUsage}%"></div>
+                                </div>
+                                <span class="fw-bold text-dark">${d.cpuUsage.toFixed(0)}%</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="p-0 py-1">Memory:</td>
+                            <td class="p-0 py-1 text-end">
+                                <div class="progress d-inline-flex align-items-center" style="height: 6px; width: 60px; margin-right: 5px;">
+                                    <div class="progress-bar bg-info" role="progressbar" style="width: ${d.memoryUsage}%"></div>
+                                </div>
+                                <span class="fw-bold text-dark">${d.memoryUsage.toFixed(0)}%</span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Render Leaflet Markers
+        function renderMapMarkers() {
+            // Clear existing
+            for (let id in deviceMarkers) {
+                map.removeLayer(deviceMarkers[id]);
+            }
+            deviceMarkers = {};
+
+            devicesData.forEach(d => {
+                const markerClass = d.status === 'Online' ? 'glowing-marker-online' : d.status === 'Offline' ? 'glowing-marker-offline' : 'glowing-marker-warning';
+                
+                const customIcon = L.divIcon({
+                    className: `glowing-marker ${markerClass}`,
+                    iconSize: [14, 14]
+                });
+
+                const marker = L.marker([d.latitude, d.longitude], { icon: customIcon })
+                    .bindPopup(getPopupHtml(d))
+                    .addTo(map);
+
+                deviceMarkers[d.id] = marker;
+            });
+        }
+
+        // Render Device Sidebar
+        function renderSidebar() {
+            const listContainer = document.getElementById('sidebarList');
+            const searchVal = document.getElementById('searchDevice').value.toLowerCase();
+            
+            const filtered = devicesData.filter(d => 
+                d.name.toLowerCase().includes(searchVal) || 
+                d.ipAddress.toLowerCase().includes(searchVal) ||
+                d.locationName.toLowerCase().includes(searchVal)
+            );
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<div class="text-center text-muted py-4 small">No devices found</div>`;
+                return;
+            }
+
+            listContainer.innerHTML = filtered.map(d => {
+                const statusBadge = d.status === 'Online' ? 'success' : d.status === 'Offline' ? 'danger' : 'warning';
+                return `
+                    <div class="device-list-card" onclick="focusDevice(${d.id}, ${d.latitude}, ${d.longitude})">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 14px;">${d.name}</h6>
+                                <span class="text-muted font-monospace small" style="font-size: 11px;">${d.ipAddress}</span>
+                            </div>
+                            <span class="badge bg-${statusBadge} py-1">${d.status}</span>
+                        </div>
+                        <div class="mt-2 small text-muted d-flex justify-content-between" style="font-size: 11px;">
+                            <span>CPU: ${d.cpuUsage.toFixed(0)}%</span>
+                            <span>Mem: ${d.memoryUsage.toFixed(0)}%</span>
+                            <span>Ping: ${d.responseTime.toFixed(0)}ms</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Click sidebar card to focus device marker on map
+        function focusDevice(id, lat, lng) {
+            map.setView([lat, lng], 14, { animate: true, duration: 0.8 });
+            const marker = deviceMarkers[id];
+            if (marker) {
+                setTimeout(() => {
+                    marker.openPopup();
+                }, 400);
+            }
+        }
+
+        // Handle sidebar search
+        document.getElementById('searchDevice').addEventListener('input', renderSidebar);
+
+        // Init page resources
+        document.addEventListener("DOMContentLoaded", () => {
+            initMap();
+            loadMapData();
+
+            // --- SignalR Setup ---
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/monitoringHub")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ReceiveStatusUpdate", function (deviceId, deviceName, status, responseTime, cpuUsage, memoryUsage) {
+                const device = devicesData.find(d => d.id === deviceId);
+                if (device) {
+                    // Update raw values
+                    device.status = status;
+                    device.responseTime = responseTime;
+                    device.cpuUsage = cpuUsage;
+                    device.memoryUsage = memoryUsage;
+
+                    // Update map marker icon and popup
+                    const marker = deviceMarkers[deviceId];
+                    if (marker) {
+                        const markerClass = status === 'Online' ? 'glowing-marker-online' : status === 'Offline' ? 'glowing-marker-offline' : 'glowing-marker-warning';
+                        const newIcon = L.divIcon({
+                            className: `glowing-marker ${markerClass}`,
+                            iconSize: [14, 14]
+                        });
+                        marker.setIcon(newIcon);
+                        marker.setPopupContent(getPopupHtml(device));
+                    }
+
+                    // Refresh Sidebar UI
+                    renderSidebar();
+                }
+            });
+
+            connection.start().then(() => {
+                console.log("Map connected to SignalR Hub successfully.");
+            }).catch(err => console.error("SignalR connect error on Map:", err));
+        });
+    </script>
+}

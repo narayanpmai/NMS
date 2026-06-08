@@ -1,0 +1,138 @@
+@model NetworkMonitoringSystem.Domain.Entities.ISP
+@{
+    ViewData["Title"] = "Add ISP";
+    var connectionTypes = new[] { "Fiber", "DSL", "LTE", "MPLS", "Leased Line", "Satellite", "Other" };
+}
+
+<div class="page-header mb-4">
+    <div>
+        <h5>Add New ISP</h5>
+        <p>Register an internet circuit for connectivity and SLA monitoring</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-primary btn-sm">
+        <i class="fa-solid fa-arrow-left me-1"></i> Back to ISP Status
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size:0.8rem;"></div>
+
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="card-title">
+                        <i class="fa-solid fa-tower-broadcast me-2" style="color:var(--brand-500);"></i>Circuit Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Name" class="form-label">Circuit Name <span style="color:var(--color-danger);">*</span></label>
+                            <input asp-for="Name" class="form-control" placeholder="e.g. Primary WAN - WorldLink" required />
+                            <span asp-validation-for="Name" class="text-danger" style="font-size:0.75rem;"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Provider" class="form-label">Provider / ISP <span style="color:var(--color-danger);">*</span></label>
+                            <input asp-for="Provider" class="form-control" placeholder="e.g. WorldLink Communications" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="CircuitId" class="form-label">Circuit / Service ID</label>
+                            <input asp-for="CircuitId" class="form-control font-mono" placeholder="e.g. WL-2026-001" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ConnectionType" class="form-label">Connection Type</label>
+                            <select asp-for="ConnectionType" class="form-select">
+                                @foreach (var t in connectionTypes)
+                                {
+                                    <option value="@t">@t</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="BandwidthMbps" class="form-label">Bandwidth (Mbps)</label>
+                            <input asp-for="BandwidthMbps" class="form-control" type="number" min="0" step="0.1" placeholder="100" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="card-title">
+                        <i class="fa-solid fa-bullseye me-2" style="color:var(--color-success);"></i>Monitoring Targets
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="PingTarget" class="form-label">Primary Ping Target <span style="color:var(--color-danger);">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-crosshairs"></i></span>
+                                <input asp-for="PingTarget" class="form-control font-mono" placeholder="8.8.8.8" required />
+                            </div>
+                            <div style="font-size:0.7rem;color:var(--gray-400);margin-top:4px;">IP to ping for this ISP (e.g. ISP gateway, 8.8.8.8)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SecondaryPingTarget" class="form-label">Secondary Ping Target</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fa-solid fa-crosshairs"></i></span>
+                                <input asp-for="SecondaryPingTarget" class="form-control font-mono" placeholder="1.1.1.1" />
+                            </div>
+                            <div style="font-size:0.7rem;color:var(--gray-400);margin-top:4px;">Cross-validation target when primary shows high loss</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="SlaTargetPercent" class="form-label">SLA Target (%)</label>
+                            <input asp-for="SlaTargetPercent" class="form-control" type="number" min="0" max="100" step="0.01" placeholder="99.9" />
+                        </div>
+                        <div class="col-md-8 d-flex align-items-end">
+                            <div class="form-check ms-2 mb-2">
+                                <input asp-for="IsMonitoringEnabled" class="form-check-input" type="checkbox" />
+                                <label asp-for="IsMonitoringEnabled" class="form-check-label fw-medium">Enable monitoring</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title">
+                        <i class="fa-solid fa-headset me-2" style="color:var(--gray-500);"></i>ISP Contact (Optional)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="ContactPerson" class="form-label">Contact / NOC Name</label>
+                            <input asp-for="ContactPerson" class="form-control" placeholder="e.g. ISP NOC Team" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ContactPhone" class="form-label">Phone</label>
+                            <input asp-for="ContactPhone" class="form-control" placeholder="+977-1-..." />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ContactEmail" class="form-label">Email</label>
+                            <input asp-for="ContactEmail" class="form-control" type="email" placeholder="noc@isp.com" />
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Notes" class="form-label">Notes</label>
+                            <textarea asp-for="Notes" class="form-control" rows="2" placeholder="Additional notes about this circuit..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-tower-broadcast me-1"></i> Add ISP &amp; Start Monitoring
+                </button>
+                <a asp-action="Index" class="btn btn-outline-primary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

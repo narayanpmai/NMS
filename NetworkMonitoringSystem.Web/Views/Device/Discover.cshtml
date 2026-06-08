@@ -1,0 +1,327 @@
+@{
+    ViewData["Title"] = "Auto-Discovery Scan";
+}
+
+<div class="page-header mb-4">
+    <div>
+        <h5>Auto-Discovery Scan</h5>
+        <p>Scan a subnet range to discover and onboard new network devices</p>
+    </div>
+    <a asp-controller="Device" asp-action="Index" class="btn btn-outline-primary btn-sm">
+        <i class="fa-solid fa-arrow-left"></i> Back to Devices
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="d-flex align-items-center gap-2 p-3 mb-3 rounded-2"
+         style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-size:0.82rem;font-weight:500;">
+        <i class="fa-solid fa-circle-check"></i> @TempData["SuccessMessage"]
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="d-flex align-items-center gap-2 p-3 mb-3 rounded-2"
+         style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-size:0.82rem;font-weight:500;">
+        <i class="fa-solid fa-circle-exclamation"></i> @TempData["ErrorMessage"]
+    </div>
+}
+
+<div class="row g-3">
+    <!-- Scan Form -->
+    <div class="col-12 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="card-title">
+                    <i class="fa-solid fa-radar me-2" style="color:var(--brand-500);"></i>Scan Configuration
+                </h6>
+            </div>
+            <div class="card-body">
+                <form id="scanForm">
+                    <div class="mb-3">
+                        <label class="form-label">Subnet Base</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa-solid fa-network-wired"></i></span>
+                            <input type="text" class="form-control font-mono" id="subnet"
+                                   name="subnet" placeholder="192.168.1" value="@ViewBag.DefaultSubnet"
+                                   required>
+                        </div>
+                        <div style="font-size:0.7rem;color:var(--gray-400);margin-top:4px;">
+                            Enter base subnet without the last octet (e.g. 192.168.1)
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Start IP</label>
+                            <input type="number" class="form-control font-mono" id="startIp"
+                                   name="startIp" min="1" max="254" value="1">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">End IP</label>
+                            <input type="number" class="form-control font-mono" id="endIp"
+                                   name="endIp" min="1" max="254" value="30">
+                        </div>
+                    </div>
+
+                    <div class="mb-4 p-3 rounded-2" style="background:var(--gray-50);border:1px solid var(--gray-200);">
+                        <div style="font-size:0.72rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">
+                            <i class="fa-solid fa-info-circle me-1" style="color:var(--color-info);"></i>
+                            Scan Range Preview
+                        </div>
+                        <div id="rangePreview" class="font-mono"
+                             style="font-size:0.78rem;color:var(--gray-700);">
+                            @ViewBag.DefaultSubnet.1 → @ViewBag.DefaultSubnet.30
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100" id="scanBtn">
+                        <i class="fa-solid fa-magnifying-glass me-1"></i> Start Discovery Scan
+                    </button>
+                </form>
+
+                <!-- Scan Progress -->
+                <div id="scanProgress" class="mt-3" style="display:none;">
+                    <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:6px;font-weight:500;">
+                        <span class="live-dot me-1"></span> Scanning subnet...
+                    </div>
+                    <div class="progress" style="height:6px;border-radius:99px;overflow:hidden;">
+                        <div class="progress-bar" id="progressBar"
+                             style="background:var(--brand-500);width:0%;transition:width 0.3s ease;"
+                             role="progressbar"></div>
+                    </div>
+                </div>
+
+                <!-- Scan Stats -->
+                <div id="scanStats" class="mt-3" style="display:none;">
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div style="font-size:1.5rem;font-weight:800;color:var(--gray-900);" id="statTotal">0</div>
+                            <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400);font-weight:600;">Found</div>
+                        </div>
+                        <div class="col-6">
+                            <div style="font-size:1.5rem;font-weight:800;color:var(--color-success);" id="statNew">0</div>
+                            <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-400);font-weight:600;">New</div>
+                        </div>
+                    </div>
+                    <button type="button" id="downloadLogBtn" class="btn btn-outline-secondary w-100 mt-3" style="font-size:0.85rem;" onclick="downloadLog()">
+                        <i class="fa-solid fa-download me-1"></i> Download Scan Log (CSV)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discovery Results -->
+    <div class="col-12 col-lg-8">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="card-title">
+                    <i class="fa-solid fa-list-check me-2" style="color:var(--color-success);"></i>
+                    Discovered Devices
+                </h6>
+                <span id="resultCount" style="font-size:0.72rem;color:var(--gray-400);font-weight:500;">
+                    Awaiting scan...
+                </span>
+            </div>
+            <div class="card-body p-0" id="resultsContainer">
+                <!-- Empty state -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">
+                        <i class="fa-solid fa-satellite-dish"></i>
+                    </div>
+                    <h6>No scan performed yet</h6>
+                    <p>Configure the subnet range and click <strong>Start Discovery Scan</strong></p>
+                </div>
+
+                <!-- Results Table (hidden until scan runs) -->
+                <div class="table-responsive" id="resultsTable" style="display:none;">
+                    <table class="table" id="discoveryTable">
+                        <thead>
+                            <tr>
+                                <th style="padding-left:1.5rem;">Device / Hostname</th>
+                                <th>IP Address</th>
+                                <th>MAC</th>
+                                <th>Vendor</th>
+                                <th>State</th>
+                                <th style="text-align:right;padding-right:1.5rem;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="discoveryTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden onboard form -->
+<form id="onboardForm" asp-controller="Device" asp-action="OnboardDevice" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="name"        id="ob_name">
+    <input type="hidden" name="hostname"    id="ob_hostname">
+    <input type="hidden" name="ipAddress"   id="ob_ip">
+    <input type="hidden" name="macAddress"  id="ob_mac">
+    <input type="hidden" name="vendor"      id="ob_vendor">
+    <input type="hidden" name="model"       id="ob_model">
+</form>
+
+@section Scripts {
+<script>
+    // Update range preview live
+    function updatePreview() {
+        let sub = document.getElementById('subnet').value.trim();
+        if (sub.endsWith('.')) {
+            sub = sub.slice(0, -1);
+        }
+        const start = document.getElementById('startIp').value || 1;
+        const end   = document.getElementById('endIp').value || 254;
+        document.getElementById('rangePreview').textContent = `${sub}.${start} → ${sub}.${end}`;
+    }
+    document.getElementById('subnet').addEventListener('input', updatePreview);
+    document.getElementById('startIp').addEventListener('input', updatePreview);
+    document.getElementById('endIp').addEventListener('input', updatePreview);
+
+    // Animate progress bar
+    let progressInterval;
+    function startProgress() {
+        let pct = 0;
+        const bar = document.getElementById('progressBar');
+        progressInterval = setInterval(() => {
+            pct = Math.min(pct + Math.random() * 8, 92);
+            bar.style.width = pct + '%';
+        }, 300);
+    }
+    function stopProgress() {
+        clearInterval(progressInterval);
+        document.getElementById('progressBar').style.width = '100%';
+    }
+
+    // Render rows
+    function renderRows(devices) {
+        window._lastDevices = devices; // store globally to avoid string escaping in HTML
+        const tbody = document.getElementById('discoveryTableBody');
+        tbody.innerHTML = '';
+
+        if (!devices.length) {
+            document.getElementById('emptyState').style.display = 'flex';
+            document.getElementById('resultsTable').style.display = 'none';
+            document.getElementById('resultCount').textContent = 'No devices found';
+            return;
+        }
+
+        devices.forEach((d, index) => {
+            const isNew = d.isNew;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding-left:1.5rem;">
+                    <div style="font-size:0.82rem;font-weight:700;color:var(--gray-900);">${d.name}</div>
+                    <div class="font-mono" style="font-size:0.7rem;color:var(--gray-400);">${d.hostname}</div>
+                </td>
+                <td><span class="font-mono badge-neutral badge">${d.ipAddress}</span></td>
+                <td><span class="font-mono" style="font-size:0.72rem;color:var(--gray-500);">${d.macAddress || '—'}</span></td>
+                <td style="font-size:0.8rem;color:var(--gray-600);">${d.vendor || 'Generic'}</td>
+                <td>
+                    ${isNew
+                        ? '<span class="status-badge status-online"><span class="dot"></span>New Device</span>'
+                        : '<span class="badge-neutral badge">Already Added</span>'}
+                </td>
+                <td style="text-align:right;padding-right:1.5rem;">
+                    ${isNew
+                        ? `<button class="btn btn-sm btn-primary" onclick="onboard(${index})">
+                               <i class="fa-solid fa-plus me-1"></i>Onboard
+                           </button>`
+                        : `<span style="font-size:0.75rem;color:var(--gray-300);">—</span>`}
+                </td>`;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('resultsTable').style.display = 'block';
+        document.getElementById('resultCount').textContent = `${devices.length} device(s) found`;
+    }
+
+    // Onboard handler
+    function onboard(index) {
+        const d = window._lastDevices[index];
+        if (!d) return;
+        document.getElementById('ob_name').value     = d.name;
+        document.getElementById('ob_hostname').value = d.hostname;
+        document.getElementById('ob_ip').value       = d.ipAddress;
+        document.getElementById('ob_mac').value      = d.macAddress || '';
+        document.getElementById('ob_vendor').value   = d.vendor    || '';
+        document.getElementById('ob_model').value    = d.model     || '';
+        document.getElementById('onboardForm').submit();
+    }
+
+    // Download CSV Log
+    function downloadLog() {
+        if (!window._lastDevices || window._lastDevices.length === 0) return;
+        
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Device Name,Hostname,IP Address,MAC Address,Vendor,State\n"; // Headers
+        
+        window._lastDevices.forEach(d => {
+            let state = d.isNew ? "New Device" : "Already Added";
+            let row = `"${d.name}","${d.hostname}","${d.ipAddress}","${d.macAddress || ''}","${d.vendor || ''}","${state}"`;
+            csvContent += row + "\n";
+        });
+        
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `discovery_scan_log_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link); // Required for FF
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Scan form submit
+    document.getElementById('scanForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const subnet  = document.getElementById('subnet').value;
+        const startIp = document.getElementById('startIp').value;
+        const endIp   = document.getElementById('endIp').value;
+
+        // Show progress
+        document.getElementById('scanProgress').style.display = 'block';
+        document.getElementById('scanStats').style.display    = 'none';
+        document.getElementById('scanBtn').disabled = true;
+        document.getElementById('scanBtn').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin me-1"></i> Scanning...';
+        startProgress();
+
+        try {
+            const formData = new FormData();
+            formData.append('subnet',  subnet);
+            formData.append('startIp', startIp);
+            formData.append('endIp',   endIp);
+            formData.append('__RequestVerificationToken',
+                document.querySelector('input[name="__RequestVerificationToken"]')?.value || '');
+
+            const response = await fetch('/Device/ScanSubnet', { method: 'POST', body: formData });
+            const devices  = await response.json();
+
+            stopProgress();
+            renderRows(devices);
+
+            const newCount = devices.filter(d => d.isNew).length;
+            document.getElementById('statTotal').textContent = devices.length;
+            document.getElementById('statNew').textContent   = newCount;
+            document.getElementById('scanStats').style.display = 'flex';
+
+        } catch (err) {
+            stopProgress();
+            console.error('Scan failed:', err);
+            document.getElementById('resultCount').textContent = 'Scan failed. Try again.';
+        } finally {
+            document.getElementById('scanBtn').disabled = false;
+            document.getElementById('scanBtn').innerHTML = '<i class="fa-solid fa-magnifying-glass me-1"></i> Start Discovery Scan';
+            setTimeout(() => {
+                document.getElementById('scanProgress').style.display = 'none';
+            }, 800);
+        }
+    });
+</script>
+}

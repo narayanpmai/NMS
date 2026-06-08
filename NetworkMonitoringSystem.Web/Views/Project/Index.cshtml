@@ -1,0 +1,72 @@
+@model IEnumerable<NetworkMonitoringSystem.Domain.Entities.Project>
+
+@{
+    ViewData["Title"] = "Project Management";
+}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-0">Projects / Sites</h5>
+        <p class="text-muted small">Manage all branches, locations, and network projects.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="fa-solid fa-plus me-1"></i> Add Project
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Project Name</th>
+                        <th>Location</th>
+                        <th>Description</th>
+                        <th>Associated Devices</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-folder-open fs-2 mb-2"></i>
+                                <p class="mb-0">No projects found. Add a new project to get started.</p>
+                            </td>
+                        </tr>
+                    }
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td class="ps-4 fw-semibold text-dark">
+                                <i class="fa-regular fa-folder-closed text-primary me-2"></i>
+                                @item.Name
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">
+                                    <i class="fa-solid fa-location-dot text-muted me-1"></i> @(string.IsNullOrEmpty(item.Location) ? "N/A" : item.Location)
+                                </span>
+                            </td>
+                            <td class="text-muted small">
+                                @item.Description
+                            </td>
+                            <td>
+                                <span class="badge bg-info text-white">@item.Devices.Count() Devices</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" title="Edit">
+                                    <i class="fa-solid fa-pen"></i>
+                                </a>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="fa-solid fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

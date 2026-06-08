@@ -1,0 +1,5 @@
+/* _Layout scoped styles - minimal, all major styles in site.css */
+
+.footer {
+    white-space: nowrap;
+}

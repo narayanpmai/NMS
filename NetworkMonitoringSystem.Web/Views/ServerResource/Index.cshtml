@@ -1,0 +1,172 @@
+@model IEnumerable<dynamic>
+@{
+    ViewData["Title"] = "Server Resources";
+}
+
+<div class="page-header mb-4">
+    <div>
+        <h5>Server Resources Monitoring</h5>
+        <p>Live metrics for CPU, Memory, and Disk utilization across network assets</p>
+    </div>
+    <button class="btn btn-outline-primary btn-sm" onclick="refreshResources()">
+        <i class="fa-solid fa-rotate-right me-1"></i> Refresh Now
+    </button>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card">
+        <div class="card-body">
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fa-solid fa-server"></i></div>
+                <h6>No Servers Monitored</h6>
+                <p>Add devices and enable monitoring to track server resources.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var item in Model)
+        {
+            var server = (NetworkMonitoringSystem.Domain.Entities.Device)item.Server;
+            bool isOnline = item.IsOnline;
+            
+            double cpu = isOnline ? item.Cpu : 0;
+            double mem = isOnline ? item.Memory : 0;
+            double disk = isOnline ? item.Disk : 0;
+
+            string cpuColor = cpu >= 90 ? "var(--color-danger)" : cpu >= 70 ? "var(--color-warning)" : "var(--color-success)";
+            string memColor = mem >= 90 ? "var(--color-danger)" : mem >= 75 ? "var(--color-warning)" : "var(--brand-500)";
+            string diskColor = disk >= 90 ? "var(--color-danger)" : disk >= 80 ? "var(--color-warning)" : "var(--gray-500)";
+
+            <div class="col-12 col-xl-6">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="icon-box" style="background:var(--gray-50);border:1px solid var(--gray-200);">
+                                <i class="fa-solid @(server.DeviceType?.Icon ?? "fa-server") fa-fw" style="color:var(--gray-600);"></i>
+                            </div>
+                            <div>
+                                <h6 class="card-title mb-0">@server.Name</h6>
+                                <div class="font-mono" style="font-size:0.72rem;color:var(--gray-400);">@server.IPAddress</div>
+                            </div>
+                        </div>
+                        <span class="status-badge @(isOnline ? "status-online" : "status-offline")" id="status-@server.Id">
+                            <span class="dot"></span> @(isOnline ? "Online" : "Offline")
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="row g-4">
+                            @* CPU Usage *@
+                            <div class="col-12 col-md-4">
+                                <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;font-weight:600;">
+                                    <span style="color:var(--gray-500);"><i class="fa-solid fa-microchip me-1"></i>CPU</span>
+                                    <span id="cpu-text-@server.Id" style="color:@cpuColor">@cpu.ToString("F1")%</span>
+                                </div>
+                                <div class="progress" style="height: 6px; background-color: var(--gray-100);">
+                                    <div id="cpu-bar-@server.Id" class="progress-bar" role="progressbar" 
+                                         style="width: @(cpu)%; background-color: @cpuColor; transition: width 1s ease-in-out;"></div>
+                                </div>
+                            </div>
+
+                            @* Memory Usage *@
+                            <div class="col-12 col-md-4">
+                                <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;font-weight:600;">
+                                    <span style="color:var(--gray-500);"><i class="fa-solid fa-memory me-1"></i>Memory</span>
+                                    <span id="mem-text-@server.Id" style="color:@memColor">@mem.ToString("F1")%</span>
+                                </div>
+                                <div class="progress" style="height: 6px; background-color: var(--gray-100);">
+                                    <div id="mem-bar-@server.Id" class="progress-bar" role="progressbar" 
+                                         style="width: @(mem)%; background-color: @memColor; transition: width 1s ease-in-out;"></div>
+                                </div>
+                            </div>
+
+                            @* Disk Usage *@
+                            <div class="col-12 col-md-4">
+                                <div class="d-flex justify-content-between mb-1" style="font-size:0.75rem;font-weight:600;">
+                                    <span style="color:var(--gray-500);"><i class="fa-solid fa-hard-drive me-1"></i>Disk</span>
+                                    <span id="disk-text-@server.Id" style="color:@diskColor">@disk.ToString("F1")%</span>
+                                </div>
+                                <div class="progress" style="height: 6px; background-color: var(--gray-100);">
+                                    <div id="disk-bar-@server.Id" class="progress-bar" role="progressbar" 
+                                         style="width: @(disk)%; background-color: @diskColor; transition: width 1s ease-in-out;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+<script>
+    function getCpuColor(val) { return val >= 90 ? "var(--color-danger)" : val >= 70 ? "var(--color-warning)" : "var(--color-success)"; }
+    function getMemColor(val) { return val >= 90 ? "var(--color-danger)" : val >= 75 ? "var(--color-warning)" : "var(--brand-500)"; }
+    function getDiskColor(val) { return val >= 90 ? "var(--color-danger)" : val >= 80 ? "var(--color-warning)" : "var(--gray-500)"; }
+
+    async function refreshResources() {
+        try {
+            const res = await fetch('/ServerResource/GetLiveResources');
+            const data = await res.json();
+            
+            data.forEach(item => {
+                const isOnline = item.isOnline;
+
+                // Status Badge
+                const badge = document.getElementById('status-' + item.id);
+                if (badge) {
+                    badge.className = 'status-badge ' + (isOnline ? 'status-online' : 'status-offline');
+                    badge.innerHTML = '<span class="dot"></span> ' + (isOnline ? 'Online' : 'Offline');
+                }
+
+                // CPU
+                const cpuText = document.getElementById('cpu-text-' + item.id);
+                const cpuBar = document.getElementById('cpu-bar-' + item.id);
+                if (cpuText && cpuBar) {
+                    const val = isOnline ? item.cpu : 0;
+                    const c = getCpuColor(val);
+                    cpuText.textContent = val.toFixed(1) + '%';
+                    cpuText.style.color = c;
+                    cpuBar.style.width = val + '%';
+                    cpuBar.style.backgroundColor = c;
+                }
+
+                // Mem
+                const memText = document.getElementById('mem-text-' + item.id);
+                const memBar = document.getElementById('mem-bar-' + item.id);
+                if (memText && memBar) {
+                    const val = isOnline ? item.memory : 0;
+                    const c = getMemColor(val);
+                    memText.textContent = val.toFixed(1) + '%';
+                    memText.style.color = c;
+                    memBar.style.width = val + '%';
+                    memBar.style.backgroundColor = c;
+                }
+
+                // Disk
+                const diskText = document.getElementById('disk-text-' + item.id);
+                const diskBar = document.getElementById('disk-bar-' + item.id);
+                if (diskText && diskBar) {
+                    const val = isOnline ? item.disk : 0;
+                    const c = getDiskColor(val);
+                    diskText.textContent = val.toFixed(1) + '%';
+                    diskText.style.color = c;
+                    diskBar.style.width = val + '%';
+                    diskBar.style.backgroundColor = c;
+                }
+            });
+        } catch(e) {
+            console.error("Failed to load resource data", e);
+        }
+    }
+
+    // Auto refresh every 30 seconds
+    setInterval(refreshResources, 30000);
+</script>
+}

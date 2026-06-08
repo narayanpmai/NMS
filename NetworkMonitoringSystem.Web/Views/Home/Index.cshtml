@@ -1,0 +1,414 @@
+@using Microsoft.AspNetCore.Identity
+@using NetworkMonitoringSystem.Infrastructure.Identity
+@inject UserManager<ApplicationUser> UserManager
+
+@{
+    ViewData["Title"] = "Network Overview";
+}
+
+<!-- ── Stat Cards ─────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+    <!-- Total Devices -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card stat-card stat-primary h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Total Devices</div>
+                        <div class="stat-value" id="stat-total">@ViewBag.TotalDevices</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-server fa-fw"></i>
+                    </div>
+                </div>
+                <div class="stat-footer text-muted">
+                    <i class="fa-solid fa-building fa-fw"></i>
+                    All registered assets
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Online -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card stat-card stat-success h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Online</div>
+                        <div class="stat-value" id="stat-online" style="color:var(--color-success);">@ViewBag.OnlineDevices</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-circle-check fa-fw"></i>
+                    </div>
+                </div>
+                <div class="stat-footer" style="color:var(--color-success);">
+                    <i class="fa-solid fa-signal fa-fw"></i>
+                    <span id="stat-uptime">@ViewBag.UptimePercent%</span> availability
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warning -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card stat-card stat-warning h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Degraded</div>
+                        <div class="stat-value" id="stat-warning" style="color:var(--color-warning);">@ViewBag.WarningDevices</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-triangle-exclamation fa-fw"></i>
+                    </div>
+                </div>
+                <div class="stat-footer text-muted">
+                    <i class="fa-solid fa-clock fa-fw"></i>
+                    High latency / slow response
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Offline -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card stat-card stat-danger h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Offline</div>
+                        <div class="stat-value" id="stat-offline" style="color:var(--color-danger);">@ViewBag.OfflineDevices</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fa-solid fa-power-off fa-fw"></i>
+                    </div>
+                </div>
+                <div class="stat-footer" id="offline-msg"
+                     style="color:@(ViewBag.OfflineDevices > 0 ? "var(--color-danger)" : "var(--color-success)");">
+                    @if (ViewBag.OfflineDevices > 0)
+                    {
+                        <i class="fa-solid fa-circle-exclamation fa-fw"></i>
+                        <text>Requires immediate attention</text>
+                    }
+                    else
+                    {
+                        <i class="fa-solid fa-check fa-fw"></i>
+                        <text>All devices reachable</text>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Charts Row ─────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+    <!-- Response Time Chart -->
+    <div class="col-12 col-lg-8">
+        <div class="card h-100">
+            <div class="card-header">
+                <div>
+                    <h6 class="card-title">Response Time</h6>
+                    <div style="font-size:0.72rem;color:var(--gray-400);margin-top:2px;">Last 20 monitoring checks</div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-1" style="font-size:0.72rem;font-weight:600;color:var(--color-success);">
+                        <span class="live-dot"></span>
+                        Live
+                    </div>
+                </div>
+            </div>
+            <div class="card-body" style="padding-top:1rem;">
+                <canvas id="responseTimeChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="col-12 col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="card-title">Recent Alerts</h6>
+                <a asp-controller="Alert" asp-action="Index"
+                   class="text-decoration-none d-flex align-items-center gap-1"
+                   style="font-size:0.75rem;font-weight:600;color:var(--brand-600);">
+                    View all <i class="fa-solid fa-arrow-right" style="font-size:0.6rem;"></i>
+                </a>
+            </div>
+            <div class="card-body p-0" id="alerts-container">
+                @if (ViewBag.RecentAlerts != null && ((IEnumerable<dynamic>)ViewBag.RecentAlerts).Any())
+                {
+                    foreach (var alert in ViewBag.RecentAlerts)
+                    {
+                        string dotColor = alert.Level == "Critical" ? "var(--color-danger)"
+                                        : alert.Level == "Warning"  ? "var(--color-warning)"
+                                        : "var(--color-info)";
+                        <div class="alert-item">
+                            <div class="alert-dot" style="background:@dotColor;"></div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:0.78rem;font-weight:600;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    @alert.Device?.Name
+                                </div>
+                                <div style="font-size:0.72rem;color:var(--gray-400);line-height:1.3;margin-top:1px;overflow:hidden;text-overflow:ellipsis;">
+                                    @alert.Message
+                                </div>
+                            </div>
+                            <div style="font-size:0.68rem;color:var(--gray-300);white-space:nowrap;margin-left:8px;flex-shrink:0;">
+                                @alert.CreatedAt.ToString("HH:mm")
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon"><i class="fa-solid fa-bell-slash"></i></div>
+                        <h6>No recent alerts</h6>
+                        <p>Your network is running smoothly</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Device Status Table ─────────────────────── -->
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h6 class="card-title">Device Status Monitor</h6>
+                    <div style="font-size:0.72rem;color:var(--gray-400);margin-top:2px;">Real-time device health dashboard</div>
+                </div>
+                <div class="d-flex align-items-center gap-2"
+                     style="font-size:0.72rem;font-weight:600;color:var(--color-success);">
+                    <span class="live-dot" id="live-indicator"></span>
+                    Live Monitoring
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table" id="device-status-table">
+                        <thead>
+                            <tr>
+                                <th style="padding-left:1.5rem;">Device</th>
+                                <th>IP Address</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Response</th>
+                                <th>Last Check</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (ViewBag.DevicesWithMetrics != null)
+                            {
+                                foreach (var item in ViewBag.DevicesWithMetrics)
+                                {
+                                    string statusName = item.Device.Status?.Name ?? "Unknown";
+                                    string statusClass = statusName == "Online"  ? "status-online"
+                                                       : statusName == "Offline" ? "status-offline"
+                                                       : "status-warning";
+                                    <tr id="device-row-@item.Device.Id">
+                                        <td style="padding-left:1.5rem;">
+                                            <div class="d-flex align-items-center gap-3">
+                                                <div class="icon-box">
+                                                    <i class="fa-solid @(item.Device.DeviceType?.Icon ?? "fa-server") fa-fw"></i>
+                                                </div>
+                                                <div>
+                                                    <div style="font-size:0.82rem;font-weight:700;color:var(--gray-900);">@item.Device.Name</div>
+                                                    <div style="font-size:0.72rem;color:var(--gray-400);">@item.Device.Hostname</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="font-mono badge-neutral badge">@item.Device.IPAddress</span>
+                                        </td>
+                                        <td style="color:var(--gray-500);font-size:0.8rem;">
+                                            @item.Device.DeviceType?.Name
+                                        </td>
+                                        <td>
+                                            <span class="status-badge @statusClass" id="status-badge-@item.Device.Id">
+                                                <span class="dot"></span>
+                                                @statusName
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span id="response-time-@item.Device.Id"
+                                                  class="font-mono"
+                                                  style="font-size:0.8rem;font-weight:500;color:var(--gray-700);">
+                                                @if (item.LastMetric != null)
+                                                {
+                                                    @($"{item.LastMetric.ResponseTimeMs:F0} ms")
+                                                }
+                                                else
+                                                {
+                                                    <text>—</text>
+                                                }
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span id="last-check-@item.Device.Id"
+                                                  class="font-mono"
+                                                  style="font-size:0.75rem;color:var(--gray-400);">
+                                                @if (item.LastMetric != null)
+                                                {
+                                                    @item.LastMetric.CheckedAt.ToString("HH:mm:ss")
+                                                }
+                                                else
+                                                {
+                                                    <text>Pending...</text>
+                                                }
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        // ── Chart.js Setup ──────────────────────────
+        const ctx = document.getElementById('responseTimeChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(99,102,241,0.18)');
+        gradient.addColorStop(1, 'rgba(99,102,241,0)');
+
+        const responseTimeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(Json.Serialize(ViewBag.ChartLabels ?? new string[0])),
+                datasets: [{
+                    label: 'Avg Response (ms)',
+                    data: @Html.Raw(Json.Serialize(ViewBag.ChartData ?? new double[0])),
+                    borderColor: '#6366f1',
+                    backgroundColor: gradient,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#6366f1',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 600, easing: 'easeOutQuart' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0f172a',
+                        titleColor: '#e2e8f0',
+                        bodyColor: '#94a3b8',
+                        borderColor: 'rgba(255,255,255,0.08)',
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: ctx => ` ${ctx.parsed.y.toFixed(0)} ms`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+                        ticks: { color: '#94a3b8', font: { size: 11 }, padding: 8 }
+                    },
+                    x: {
+                        grid: { display: false, drawBorder: false },
+                        ticks: { color: '#94a3b8', font: { size: 11 }, maxRotation: 0 }
+                    }
+                }
+            }
+        });
+
+        // ── SignalR ─────────────────────────────────
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/monitoringHub")
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("ReceiveDashboardUpdate", (total, online, warning, offline) => {
+            document.getElementById('stat-total').textContent   = total;
+            document.getElementById('stat-online').textContent  = online;
+            document.getElementById('stat-warning').textContent = warning;
+            document.getElementById('stat-offline').textContent = offline;
+
+            const uptime = total > 0 ? ((online / total) * 100).toFixed(1) : "0.0";
+            document.getElementById('stat-uptime').textContent = uptime + '%';
+
+            const offlineMsg = document.getElementById('offline-msg');
+            if (offline > 0) {
+                offlineMsg.style.color = 'var(--color-danger)';
+                offlineMsg.innerHTML = '<i class="fa-solid fa-circle-exclamation fa-fw"></i> Requires immediate attention';
+            } else {
+                offlineMsg.style.color = 'var(--color-success)';
+                offlineMsg.innerHTML = '<i class="fa-solid fa-check fa-fw"></i> All devices reachable';
+            }
+        });
+
+        connection.on("ReceiveStatusUpdate", (deviceId, deviceName, status, responseTime) => {
+            const badge    = document.getElementById('status-badge-' + deviceId);
+            const respEl   = document.getElementById('response-time-' + deviceId);
+            const lastCheck = document.getElementById('last-check-' + deviceId);
+
+            if (badge) {
+                const cls = status === 'Online' ? 'status-online'
+                          : status === 'Offline' ? 'status-offline'
+                          : 'status-warning';
+                badge.className = 'status-badge ' + cls;
+                badge.innerHTML = '<span class="dot"></span>' + status;
+            }
+            if (respEl) respEl.textContent = responseTime.toFixed(0) + ' ms';
+            if (lastCheck) lastCheck.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+
+            // Update chart
+            if (responseTimeChart.data.labels.length > 20) {
+                responseTimeChart.data.labels.shift();
+                responseTimeChart.data.datasets[0].data.shift();
+            }
+            const lbl = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+            responseTimeChart.data.labels.push(lbl);
+            responseTimeChart.data.datasets[0].data.push(responseTime);
+            responseTimeChart.update('none');
+        });
+
+        connection.on("ReceiveAlert", (deviceName, message, level) => {
+            const container = document.getElementById('alerts-container');
+            const dotColor  = level === 'Critical' ? 'var(--color-danger)'
+                            : level === 'Warning'  ? 'var(--color-warning)'
+                            : 'var(--color-info)';
+            const html = `
+                <div class="alert-item alert-flash">
+                    <div class="alert-dot" style="background:${dotColor};"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:0.78rem;font-weight:600;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${deviceName}</div>
+                        <div style="font-size:0.72rem;color:var(--gray-400);line-height:1.3;margin-top:1px;">${message}</div>
+                    </div>
+                    <div style="font-size:0.68rem;color:var(--gray-300);white-space:nowrap;margin-left:8px;flex-shrink:0;">Now</div>
+                </div>`;
+            container.insertAdjacentHTML('afterbegin', html);
+            // Keep only 6 items
+            const items = container.querySelectorAll('.alert-item');
+            if (items.length > 6) items[items.length - 1].remove();
+        });
+
+        connection.start()
+            .then(() => console.log("SignalR connected."))
+            .catch(err => console.error("SignalR error:", err));
+    </script>
+}

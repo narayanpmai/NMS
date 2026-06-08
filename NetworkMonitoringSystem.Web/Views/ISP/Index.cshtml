@@ -1,0 +1,342 @@
+@model IEnumerable<NetworkMonitoringSystem.Domain.Entities.ISP>
+@{
+    ViewData["Title"] = "ISP Status";
+}
+
+<div class="page-header mb-4">
+    <div>
+        <h5>ISP Status Monitor</h5>
+        <p>Real-time connectivity, latency, and SLA tracking for all internet circuits</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-plus me-1"></i> Add ISP
+    </a>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="d-flex align-items-center gap-2 p-3 mb-3 rounded-2"
+         style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-size:0.82rem;font-weight:500;">
+        <i class="fa-solid fa-circle-check"></i> @TempData["SuccessMessage"]
+    </div>
+}
+
+@* ── Summary Cards ─────────────────────────────────────────────── *@
+<div class="row g-3 mb-4" id="summaryCards">
+    @{
+        var online   = Model.Count(i => i.Status == "Online");
+        var degraded = Model.Count(i => i.Status == "Degraded");
+        var offline  = Model.Count(i => i.Status == "Offline");
+        var unknown  = Model.Count(i => i.Status == "Unknown");
+    }
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div style="font-size:2rem;font-weight:800;color:var(--color-success);">@online</div>
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--gray-400);font-weight:600;">Online</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div style="font-size:2rem;font-weight:800;color:var(--color-warning);">@degraded</div>
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--gray-400);font-weight:600;">Degraded</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div style="font-size:2rem;font-weight:800;color:var(--color-danger);">@offline</div>
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--gray-400);font-weight:600;">Offline</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center">
+            <div style="font-size:2rem;font-weight:800;color:var(--gray-400);">@unknown</div>
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--gray-400);font-weight:600;">Pending Check</div>
+        </div>
+    </div>
+</div>
+
+@* ── ISP Cards ─────────────────────────────────────────────────── *@
+@if (!Model.Any())
+{
+    <div class="card">
+        <div class="card-body">
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+                <h6>No ISPs configured</h6>
+                <p>Click <strong>Add ISP</strong> to register an internet circuit for monitoring.</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var isp in Model)
+        {
+            string statusClass = isp.Status switch
+            {
+                "Online"   => "status-online",
+                "Degraded" => "status-warning",
+                "Offline"  => "status-offline",
+                _          => ""
+            };
+            string cardAccent = isp.Status switch
+            {
+                "Online"   => "var(--color-success)",
+                "Degraded" => "var(--color-warning)",
+                "Offline"  => "var(--color-danger)",
+                _          => "var(--gray-300)"
+            };
+            string typeIcon = isp.ConnectionType switch
+            {
+                "Fiber"       => "fa-bolt",
+                "LTE"         => "fa-signal",
+                "DSL"         => "fa-plug",
+                "MPLS"        => "fa-route",
+                "Leased Line" => "fa-link",
+                _             => "fa-globe"
+            };
+
+            double slaCalc = 0;
+            if (isp.TotalDowntimeMinutes > 0)
+            {
+                // rough SLA for current month (days so far × 24 × 60 total minutes)
+                int minutesSoFar = (int)(DateTime.UtcNow - new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1)).TotalMinutes;
+                slaCalc = minutesSoFar > 0
+                    ? Math.Round(((double)(minutesSoFar - isp.TotalDowntimeMinutes) / minutesSoFar) * 100.0, 3)
+                    : 100.0;
+            }
+            else { slaCalc = 100.0; }
+
+            <div class="col-12 col-lg-6">
+                <div class="card" style="border-top:3px solid @cardAccent !important;">
+                    <div class="card-header">
+                        <div class="d-flex align-items-center gap-3" style="flex:1;">
+                            <div class="icon-box" style="background:var(--gray-50);border:1px solid var(--gray-200);">
+                                <i class="fa-solid @typeIcon fa-fw" style="color:@cardAccent;"></i>
+                            </div>
+                            <div style="flex:1;">
+                                <h6 class="card-title">@isp.Name</h6>
+                                <div style="font-size:0.72rem;color:var(--gray-400);">@isp.Provider &nbsp;·&nbsp; @isp.CircuitId</div>
+                            </div>
+                            <span class="status-badge @statusClass" id="status-badge-@isp.Id">
+                                <span class="dot"></span> @isp.Status
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @* Metric row *@
+                        <div class="row g-3 mb-3">
+                            <div class="col-4 text-center">
+                                <div class="p-2 rounded-2" style="background:var(--gray-50);border:1px solid var(--gray-100);">
+                                    <div id="latency-@isp.Id"
+                                         style="font-size:1.3rem;font-weight:800;color:var(--gray-900);">
+                                        @(isp.LastLatencyMs.HasValue ? $"{isp.LastLatencyMs:F0}" : "—")
+                                    </div>
+                                    <div style="font-size:0.65rem;color:var(--gray-400);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">
+                                        ms Latency
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="p-2 rounded-2" style="background:var(--gray-50);border:1px solid var(--gray-100);">
+                                    <div id="loss-@isp.Id"
+                                         style="font-size:1.3rem;font-weight:800;color:@(isp.PacketLossPercent > 0 ? "var(--color-danger)" : "var(--color-success)");">
+                                        @(isp.PacketLossPercent.HasValue ? $"{isp.PacketLossPercent:F0}%" : "—")
+                                    </div>
+                                    <div style="font-size:0.65rem;color:var(--gray-400);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">
+                                        Packet Loss
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="p-2 rounded-2" style="background:var(--gray-50);border:1px solid var(--gray-100);">
+                                    <div style="font-size:1.3rem;font-weight:800;color:@(slaCalc >= isp.SlaTargetPercent ? "var(--color-success)" : "var(--color-danger)");">
+                                        @slaCalc.ToString("F2")%
+                                    </div>
+                                    <div style="font-size:0.65rem;color:var(--gray-400);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">
+                                        SLA (MTD)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @* Info grid *@
+                        <div class="row g-2 small text-muted mb-3" style="font-size:0.78rem;">
+                            <div class="col-6">
+                                <i class="fa-solid fa-gauge me-1" style="color:var(--brand-500);"></i>
+                                <strong>Bandwidth:</strong> @isp.BandwidthMbps Mbps
+                            </div>
+                            <div class="col-6">
+                                <i class="fa-solid fa-plug me-1" style="color:var(--brand-500);"></i>
+                                <strong>Type:</strong> @isp.ConnectionType
+                            </div>
+                            <div class="col-6">
+                                <i class="fa-solid fa-bullseye me-1" style="color:var(--brand-500);"></i>
+                                <strong>Target:</strong>
+                                <span class="font-mono">@isp.PingTarget</span>
+                            </div>
+                            <div class="col-6">
+                                <i class="fa-solid fa-shield-check me-1" style="color:var(--brand-500);"></i>
+                                <strong>SLA Target:</strong> @isp.SlaTargetPercent%
+                            </div>
+                            <div class="col-6">
+                                <i class="fa-solid fa-exclamation-triangle me-1" style="color:var(--color-warning);"></i>
+                                <strong>Downtime events:</strong> @isp.DowntimeCount
+                            </div>
+                            <div class="col-6">
+                                <i class="fa-solid fa-clock me-1" style="color:var(--gray-400);"></i>
+                                <strong>Checked:</strong>
+                                @(isp.LastCheckedAt.HasValue
+                                    ? isp.LastCheckedAt.Value.ToString("HH:mm:ss") + " UTC"
+                                    : "Not yet checked")
+                            </div>
+                        </div>
+
+                        @* Contact strip *@
+                        @if (!string.IsNullOrEmpty(isp.ContactPerson))
+                        {
+                            <div class="p-2 rounded-2 d-flex align-items-center gap-2"
+                                 style="background:var(--gray-50);border:1px solid var(--gray-100);font-size:0.75rem;color:var(--gray-500);">
+                                <i class="fa-solid fa-headset" style="color:var(--brand-500);"></i>
+                                <span><strong>@isp.ContactPerson</strong></span>
+                                @if (!string.IsNullOrEmpty(isp.ContactPhone))
+                                {
+                                    <span class="ms-1">@isp.ContactPhone</span>
+                                }
+                                @if (!string.IsNullOrEmpty(isp.ContactEmail))
+                                {
+                                    <a href="mailto:@isp.ContactEmail" class="ms-auto"
+                                       style="color:var(--brand-500);font-size:0.72rem;">@isp.ContactEmail</a>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="card-footer d-flex justify-content-end gap-2"
+                         style="border-top:1px solid var(--gray-100);padding:0.75rem 1rem;">
+                        <a asp-action="Edit" asp-route-id="@isp.Id" class="btn btn-sm btn-outline-primary">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </a>
+                        <form asp-action="Delete" asp-route-id="@isp.Id" method="post" class="d-inline"
+                              onsubmit="return confirm('Remove @Html.Raw(isp.Name.Replace("'","\\'")) from monitoring?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@* ── Detailed table for all ISPs ──────────────────────────────── *@
+@if (Model.Any())
+{
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="card-title">
+                <i class="fa-solid fa-list me-2" style="color:var(--brand-500);"></i>All Circuit Details
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="padding-left:1.5rem;">ISP / Circuit</th>
+                            <th>Type</th>
+                            <th>Bandwidth</th>
+                            <th>Ping Target</th>
+                            <th>Status</th>
+                            <th>Latency</th>
+                            <th>Loss %</th>
+                            <th>Downtime Events</th>
+                            <th style="padding-right:1.5rem;text-align:right;">Monitoring</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var isp in Model)
+                        {
+                            string sc = isp.Status switch
+                            {
+                                "Online"   => "badge-success",
+                                "Degraded" => "badge-warning",
+                                "Offline"  => "badge-critical",
+                                _          => "badge-neutral"
+                            };
+                            <tr>
+                                <td style="padding-left:1.5rem;">
+                                    <div style="font-size:0.82rem;font-weight:700;color:var(--gray-900);">@isp.Name</div>
+                                    <div style="font-size:0.7rem;color:var(--gray-400);">@isp.Provider · @isp.CircuitId</div>
+                                </td>
+                                <td style="font-size:0.8rem;color:var(--gray-500);">@isp.ConnectionType</td>
+                                <td style="font-size:0.8rem;font-weight:600;">@isp.BandwidthMbps Mbps</td>
+                                <td><span class="font-mono" style="font-size:0.75rem;color:var(--gray-500);">@isp.PingTarget</span></td>
+                                <td><span class="badge @sc">@isp.Status</span></td>
+                                <td class="font-mono" style="font-size:0.78rem;">
+                                    @(isp.LastLatencyMs.HasValue ? $"{isp.LastLatencyMs:F0} ms" : "—")
+                                </td>
+                                <td style="font-size:0.78rem;color:@(isp.PacketLossPercent > 0 ? "var(--color-danger)" : "var(--color-success)");">
+                                    @(isp.PacketLossPercent.HasValue ? $"{isp.PacketLossPercent:F1}%" : "—")
+                                </td>
+                                <td style="font-size:0.78rem;">
+                                    @isp.DowntimeCount
+                                    @if (isp.TotalDowntimeMinutes > 0)
+                                    {
+                                        <span style="color:var(--gray-400);font-size:0.7rem;">(@isp.TotalDowntimeMinutes min)</span>
+                                    }
+                                </td>
+                                <td style="text-align:right;padding-right:1.5rem;">
+                                    @if (isp.IsMonitoringEnabled)
+                                    {
+                                        <span class="status-badge status-online" style="font-size:0.68rem;">
+                                            <span class="dot"></span> Active
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-neutral badge" style="font-size:0.68rem;">Paused</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+    // Auto-refresh ISP status every 60 seconds
+    async function refreshISPStatus() {
+        try {
+            const res   = await fetch('/ISP/GetStatusData');
+            const isps  = await res.json();
+            isps.forEach(isp => {
+                // update badge
+                const badge = document.getElementById('status-badge-' + isp.id);
+                if (badge) {
+                    badge.className = 'status-badge ' + (
+                        isp.status === 'Online'   ? 'status-online' :
+                        isp.status === 'Degraded' ? 'status-warning' :
+                        isp.status === 'Offline'  ? 'status-offline' : '');
+                    badge.innerHTML = '<span class="dot"></span> ' + isp.status;
+                }
+                // update latency
+                const latEl = document.getElementById('latency-' + isp.id);
+                if (latEl && isp.lastLatencyMs != null)
+                    latEl.textContent = Math.round(isp.lastLatencyMs);
+                // update loss
+                const lossEl = document.getElementById('loss-' + isp.id);
+                if (lossEl && isp.packetLossPercent != null)
+                    lossEl.textContent = Math.round(isp.packetLossPercent) + '%';
+            });
+        } catch(e) { /* fail silently */ }
+    }
+    setInterval(refreshISPStatus, 60000);
+</script>
+}

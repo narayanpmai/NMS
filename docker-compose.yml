@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  sqldata:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: nms-sql
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=StrongP@ssw0rd!23
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    restart: unless-stopped
+
+  nms-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nms-app
+    depends_on:
+      - sqldata
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sqldata;Database=NetworkMonitoringSystemDb;User Id=sa;Password=StrongP@ssw0rd!23;TrustServerCertificate=True;MultipleActiveResultSets=true
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  sqldata:

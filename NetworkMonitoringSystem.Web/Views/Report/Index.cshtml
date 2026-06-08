@@ -1,0 +1,116 @@
+@{
+    ViewData["Title"] = "Reports";
+    var years  = new List<int> { DateTime.UtcNow.Year, DateTime.UtcNow.Year - 1 };
+    var months = Enumerable.Range(1, 12)
+                    .Select(m => new { Value = m, Text = new DateTime(2000, m, 1).ToString("MMMM") })
+                    .ToList();
+}
+
+<div class="page-header mb-4">
+    <div>
+        <h5>Capacity &amp; SLA Reports</h5>
+        <p>Export performance metrics and network SLA certifications</p>
+    </div>
+</div>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="d-flex align-items-center gap-2 p-3 mb-3 rounded-2"
+         style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-size:0.82rem;font-weight:500;">
+        <i class="fa-solid fa-circle-exclamation"></i> @TempData["ErrorMessage"]
+    </div>
+}
+
+<div class="row g-3">
+
+    <!-- SLA PDF -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="icon-box" style="background:#fef2f2;color:#dc2626;border-radius:var(--radius-sm);">
+                        <i class="fa-solid fa-file-pdf fa-fw"></i>
+                    </div>
+                    <div>
+                        <h6 class="card-title">Monthly SLA Compliance Report</h6>
+                        <div style="font-size:0.7rem;color:var(--gray-400);">PDF certificate with uptime / latency indicators</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form asp-action="DownloadSlaReport" method="get">
+                    <div class="mb-3">
+                        <label for="deviceId" class="form-label">Target Device</label>
+                        <select id="deviceId" name="deviceId" class="form-select" asp-items="ViewBag.Devices" required>
+                            <option value="">— Choose device —</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <label for="year" class="form-label">Year</label>
+                            <select id="year" name="year" class="form-select" required>
+                                @foreach (var y in years)
+                                {
+                                    <option value="@y">@y</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label for="month" class="form-label">Month</label>
+                            <select id="month" name="month" class="form-select" required>
+                                @foreach (var m in months)
+                                {
+                                    <option value="@m.Value" selected="@(m.Value == DateTime.UtcNow.Month ? "selected" : null)">@m.Text</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fa-solid fa-download me-1"></i> Generate PDF Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Capacity CSV -->
+    <div class="col-12 col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="icon-box" style="background:#f0fdf4;color:var(--color-success);border-radius:var(--radius-sm);">
+                        <i class="fa-solid fa-file-excel fa-fw"></i>
+                    </div>
+                    <div>
+                        <h6 class="card-title">Capacity Planning &amp; Metrics Export</h6>
+                        <div style="font-size:0.7rem;color:var(--gray-400);">CSV spreadsheet of CPU, RAM, latency averages</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p style="font-size:0.8rem;color:var(--gray-500);flex:1;">
+                    Export historical load indicators for all monitored devices in a comma-separated format compatible with Microsoft Excel and Google Sheets.
+                    Includes: CPU average, RAM average, response time averages, online/offline percentages, and alert counts per device.
+                </p>
+                <div class="row g-2 mb-3 mt-2">
+                    <div class="col-6">
+                        <div class="p-3 rounded-2 text-center" style="background:var(--gray-50);border:1px solid var(--gray-200);">
+                            <div style="font-size:1.25rem;font-weight:800;color:var(--color-success);">CSV</div>
+                            <div style="font-size:0.68rem;color:var(--gray-400);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Format</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 rounded-2 text-center" style="background:var(--gray-50);border:1px solid var(--gray-200);">
+                            <div style="font-size:1.25rem;font-weight:800;color:var(--brand-500);">All Devices</div>
+                            <div style="font-size:0.68rem;color:var(--gray-400);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Scope</div>
+                        </div>
+                    </div>
+                </div>
+                <a asp-action="DownloadCapacityReport" class="btn btn-primary w-100"
+                   style="background:var(--color-success);border-color:var(--color-success);">
+                    <i class="fa-solid fa-file-arrow-down me-1"></i> Export Metrics Spreadsheet (.csv)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

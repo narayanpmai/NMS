@@ -1,0 +1,504 @@
+@{
+    ViewData["Title"] = "Network Topology Map";
+}
+
+<style>
+    .topology-container {
+        display: flex;
+        height: calc(100vh - var(--header-height) - 100px);
+        background-color: #0f172a; /* Dark premium grid background */
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+    }
+
+    #topologySvg {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+    }
+
+    #topologySvg:active {
+        cursor: grabbing;
+    }
+
+    /* Grid pattern background */
+    .grid-bg {
+        fill: url(#gridPattern);
+    }
+
+    /* Node & Link Styles */
+    .link-line {
+        stroke: #475569;
+        stroke-width: 2px;
+        stroke-opacity: 0.6;
+        transition: stroke 0.3s, stroke-width 0.3s;
+    }
+
+    .link-line.active {
+        stroke: #38bdf8;
+        stroke-width: 3px;
+        stroke-dasharray: 4;
+        animation: dash 1s linear infinite;
+    }
+
+    @@keyframes dash {
+        to {
+            stroke-dashoffset: -20;
+        }
+    }
+
+    .link-label {
+        font-size: 9px;
+        fill: #94a3b8;
+        font-weight: 500;
+        text-anchor: middle;
+    }
+
+    .node-group {
+        cursor: pointer;
+    }
+
+    .node-base {
+        fill: #1e293b;
+        stroke: #334155;
+        stroke-width: 2.5px;
+        transition: all 0.3s;
+    }
+
+    .node-group:hover .node-base {
+        stroke: #38bdf8;
+        fill: #0f172a;
+        filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.5));
+    }
+
+    .node-icon {
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        font-size: 16px;
+        text-anchor: middle;
+        dominant-baseline: middle;
+        fill: #f1f5f9;
+    }
+
+    .node-status-ring {
+        stroke-width: 2px;
+        fill: none;
+    }
+
+    .status-online { stroke: #2ec4b6; fill: #2ec4b6; }
+    .status-warning { stroke: #ff9f1c; fill: #ff9f1c; }
+    .status-offline { stroke: #e71d36; fill: #e71d36; }
+
+    .node-label {
+        fill: #f1f5f9;
+        font-size: 11px;
+        font-weight: 600;
+        text-anchor: middle;
+    }
+
+    .node-sublabel {
+        fill: #94a3b8;
+        font-size: 9px;
+        text-anchor: middle;
+    }
+
+    /* Details Panel overlay */
+    .topology-panel {
+        width: 320px;
+        background: rgba(30, 41, 59, 0.95);
+        backdrop-filter: blur(10px);
+        border-left: 1px solid rgba(255,255,255,0.1);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        color: #f1f5f9;
+        z-index: 10;
+        transform: translateX(100%);
+        transition: transform 0.3s ease-in-out;
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        box-shadow: -5px 0 25px rgba(0,0,0,0.5);
+    }
+
+    .topology-panel.open {
+        transform: translateX(0);
+    }
+
+    .panel-close-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 1.25rem;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .panel-close-btn:hover {
+        color: #fff;
+    }
+
+    /* Map legends positioning */
+    .topology-legend {
+        position: absolute;
+        left: 20px;
+        bottom: 20px;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(5px);
+        border: 1px solid #334155;
+        padding: 10px 15px;
+        border-radius: 8px;
+        z-index: 10;
+        color: #f1f5f9;
+        font-size: 11px;
+    }
+</style>
+
+<div class="container-fluid py-2">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-0 fw-bold"><i class="fa-solid fa-circle-nodes me-2 text-primary"></i>Network Topology Map</h4>
+            <small class="text-muted">Interactive live-link tree layout of infrastructure entities</small>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="resetZoom()"><i class="fa-solid fa-arrows-to-eye me-1"></i> Reset View</button>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadTopologyData()"><i class="fa-solid fa-rotate me-1"></i> Refresh</button>
+        </div>
+    </div>
+
+    <div class="topology-container">
+        <!-- SVG Canvas -->
+        <svg id="topologySvg">
+            <defs>
+                <!-- Grid pattern -->
+                <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.8" />
+                </pattern>
+                <!-- Arrow Marker for directional connections -->
+                <marker id="arrow" viewBox="0 -5 10 10" refX="25" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M0,-5L10,0L0,5" fill="#475569" />
+                </marker>
+            </defs>
+            <rect width="100%" height="100%" class="grid-bg" />
+            <g id="zoomContainer">
+                <g id="linksGroup"></g>
+                <g id="nodesGroup"></g>
+            </g>
+        </svg>
+
+        <!-- Legend -->
+        <div class="topology-legend">
+            <div class="fw-bold mb-2">Device Status</div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="rounded-circle d-inline-block bg-success" style="width: 8px; height: 8px;"></span> Online
+            </div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="rounded-circle d-inline-block bg-warning" style="width: 8px; height: 8px;"></span> Warning
+            </div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="rounded-circle d-inline-block bg-danger" style="width: 8px; height: 8px;"></span> Offline
+            </div>
+            <div class="border-top border-secondary pt-2">
+                <div class="fw-bold mb-1">Device Type Icons</div>
+                <div class="d-flex gap-3 mt-1">
+                    <span><i class="fa-solid fa-network-wired me-1 text-info"></i> Router</span>
+                    <span><i class="fa-solid fa-server me-1 text-info"></i> Server/Switch</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Sidebar Panel -->
+        <div class="topology-panel" id="detailsPanel">
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+                <h5 class="mb-0 fw-bold"><i class="fa-solid fa-circle-info me-2 text-primary"></i>Node Details</h5>
+                <button class="panel-close-btn" onclick="closePanel()">&times;</button>
+            </div>
+            <div id="panelContent">
+                <!-- Injected dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+    <script>
+        let svg, zoomContainer, simulation, zoomBehavior;
+        let nodesData = [];
+        let linksData = [];
+
+        // FontAwesome icon hex values for SVG drawings
+        const iconUnicode = {
+            "Router": "\uf6ff", // fa-network-wired
+            "Switch": "\uf233", // fa-server (mocked switch icon)
+            "Firewall": "\uf3ed", // fa-shield-halved
+            "Server": "\uf233", // fa-server
+            "Workstation": "\uf109", // fa-laptop
+        };
+
+        function initD3() {
+            svg = d3.select("#topologySvg");
+            zoomContainer = d3.select("#zoomContainer");
+
+            // Setup Zoom / Pan behavior
+            zoomBehavior = d3.zoom()
+                .scaleExtent([0.3, 3])
+                .on("zoom", (event) => {
+                    zoomContainer.attr("transform", event.transform);
+                });
+
+            svg.call(zoomBehavior);
+        }
+
+        function resetZoom() {
+            svg.transition().duration(750).call(
+                zoomBehavior.transform,
+                d3.zoomIdentity.translate(svg.node().clientWidth / 2 - 100, svg.node().clientHeight / 2 - 50).scale(0.9)
+            );
+        }
+
+        // Fetch graph details
+        function loadTopologyData() {
+            fetch('/Home/GetTopologyData')
+                .then(res => res.json())
+                .then(data => {
+                    nodesData = data.nodes;
+                    linksData = data.links;
+                    buildSimulation();
+                    resetZoom();
+                })
+                .catch(err => console.error("Error loading topology:", err));
+        }
+
+        // Run D3 Force-Directed Simulation
+        function buildSimulation() {
+            // Cancel current if running
+            if (simulation) simulation.stop();
+
+            const width = svg.node().clientWidth;
+            const height = svg.node().clientHeight;
+
+            // Setup Simulation Forces
+            simulation = d3.forceSimulation(nodesData)
+                .force("link", d3.forceLink(linksData).id(d => d.id).distance(120))
+                .force("charge", d3.forceManyBody().strength(-400))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(50));
+
+            // Render Links
+            const linkG = d3.select("#linksGroup").selectAll(".link-group")
+                .data(linksData, d => `${d.source.id ?? d.source}-${d.target.id ?? d.target}`);
+
+            linkG.exit().remove();
+
+            const linkEnter = linkG.enter().append("g")
+                .attr("class", "link-group");
+
+            linkEnter.append("line")
+                .attr("class", d => {
+                    // Check if links are active
+                    return "link-line";
+                })
+                .attr("marker-end", "url(#arrow)");
+
+            linkEnter.append("text")
+                .attr("class", "link-label")
+                .attr("dy", -5)
+                .text(d => d.label || "Link");
+
+            const allLinks = linkEnter.merge(linkG);
+
+            // Render Nodes
+            const nodeG = d3.select("#nodesGroup").selectAll(".node-group")
+                .data(nodesData, d => d.id);
+
+            nodeG.exit().remove();
+
+            const nodeEnter = nodeG.enter().append("g")
+                .attr("class", "node-group")
+                .attr("id", d => `node-group-${d.id}`)
+                .on("click", (event, d) => showNodeDetails(d))
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            // Base node outline circle
+            nodeEnter.append("circle")
+                .attr("r", 25)
+                .attr("class", "node-base");
+
+            // Add FontAwesome Icon inside node
+            nodeEnter.append("text")
+                .attr("class", "node-icon")
+                .text(d => iconUnicode[d.type] || "\uf233");
+
+            // Status Indicator Dot (top-right of node)
+            nodeEnter.append("circle")
+                .attr("r", 6)
+                .attr("cx", 18)
+                .attr("cy", -18)
+                .attr("id", d => `node-status-dot-${d.id}`)
+                .attr("class", d => `node-status-ring status-${d.status.toLowerCase()}`);
+
+            // Text Labels below node
+            nodeEnter.append("text")
+                .attr("class", "node-label")
+                .attr("y", 38)
+                .text(d => d.name);
+
+            nodeEnter.append("text")
+                .attr("class", "node-sublabel")
+                .attr("y", 50)
+                .text(d => d.ip);
+
+            const allNodes = nodeEnter.merge(nodeG);
+
+            // Simulation Ticks
+            simulation.on("tick", () => {
+                allLinks.selectAll("line")
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                allLinks.selectAll(".link-label")
+                    .attr("x", d => (d.source.x + d.target.x) / 2)
+                    .attr("y", d => (d.source.y + d.target.y) / 2);
+
+                allNodes.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+        }
+
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Open details panel
+        function showNodeDetails(d) {
+            const panel = document.getElementById("detailsPanel");
+            const content = document.getElementById("panelContent");
+            panel.classList.add("open");
+
+            const statusClass = d.status === 'Online' ? 'success' : d.status === 'Offline' ? 'danger' : 'warning';
+
+            content.innerHTML = `
+                <div class="mb-4">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-${statusClass} py-1 px-3 me-2">${d.status}</span>
+                        <h5 class="mb-0 fw-bold">${d.name}</h5>
+                    </div>
+                    <small class="text-muted font-monospace">${d.ip}</small>
+                </div>
+
+                <div class="card bg-slate border-secondary mb-3" style="background: rgba(15, 23, 42, 0.4);">
+                    <div class="card-body p-3">
+                        <div class="row g-2 small text-muted">
+                            <div class="col-5">Device Type:</div>
+                            <div class="col-7 text-white font-medium">${d.type}</div>
+                            <div class="col-5">IP Address:</div>
+                            <div class="col-7 text-white font-monospace">${d.ip}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small">CPU Utilization</span>
+                        <span class="small fw-bold text-primary" id="panel-cpu-text-${d.id}">${d.cpu.toFixed(1)}%</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-primary" id="panel-cpu-bar-${d.id}" role="progressbar" style="width: ${d.cpu}%"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small">Memory Utilization</span>
+                        <span class="small fw-bold text-info" id="panel-memory-text-${d.id}">${d.memory.toFixed(1)}%</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-info" id="panel-memory-bar-${d.id}" role="progressbar" style="width: ${d.memory}%"></div>
+                    </div>
+                </div>
+
+                <div class="d-grid mt-4">
+                    <a href="/Device/Edit/${d.id}" class="btn btn-sm btn-outline-light"><i class="fa-regular fa-pen-to-square me-1"></i> Edit Configuration</a>
+                </div>
+            `;
+        }
+
+        function closePanel() {
+            document.getElementById("detailsPanel").classList.remove("open");
+        }
+
+        // Init page
+        document.addEventListener("DOMContentLoaded", () => {
+            initD3();
+            loadTopologyData();
+
+            // Handle browser resize
+            window.addEventListener("resize", () => {
+                if (simulation) buildSimulation();
+            });
+
+            // --- SignalR Setup ---
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/monitoringHub")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ReceiveStatusUpdate", function (deviceId, deviceName, status, responseTime, cpuUsage, memoryUsage) {
+                // Find node inside graph nodesData
+                const node = nodesData.find(n => n.id === deviceId.toString());
+                if (node) {
+                    node.status = status;
+                    node.cpu = cpuUsage;
+                    node.memory = memoryUsage;
+
+                    // Update node status indicator ring style on graph
+                    const dot = d3.select(`#node-status-dot-${deviceId}`);
+                    if (!dot.empty()) {
+                        dot.attr("class", `node-status-ring status-${status.toLowerCase()}`);
+                    }
+
+                    // If details panel is open for this specific node, update progress bars real-time
+                    const cpuText = document.getElementById(`panel-cpu-text-${deviceId}`);
+                    const cpuBar = document.getElementById(`panel-cpu-bar-${deviceId}`);
+                    const memoryText = document.getElementById(`panel-memory-text-${deviceId}`);
+                    const memoryBar = document.getElementById(`panel-memory-bar-${deviceId}`);
+
+                    if (cpuText) cpuText.textContent = cpuUsage.toFixed(1) + "%";
+                    if (cpuBar) cpuBar.style.width = cpuUsage + "%";
+                    if (memoryText) memoryText.textContent = memoryUsage.toFixed(1) + "%";
+                    if (memoryBar) memoryBar.style.width = memoryUsage + "%";
+                }
+            });
+
+            connection.start().then(() => {
+                console.log("Topology connected to SignalR Hub successfully.");
+            }).catch(err => console.error("SignalR connect error on Topology:", err));
+        });
+    </script>
+}

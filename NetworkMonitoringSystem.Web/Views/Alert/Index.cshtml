@@ -1,0 +1,126 @@
+@model IEnumerable<NetworkMonitoringSystem.Domain.Entities.Alert>
+
+@{
+    ViewData["Title"] = "Alerts";
+}
+
+<div class="page-header mb-4">
+    <div>
+        <h5>System Alerts</h5>
+        <p>Threshold breaches and notifications from monitored devices</p>
+    </div>
+    <div class="d-flex gap-2">
+        <span class="status-badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;padding:0.4em 0.9em;">
+            <i class="fa-solid fa-circle-exclamation" style="font-size:0.65rem;"></i>
+            @Model.Count(a => !a.IsResolved && a.Level == "Critical") Critical
+        </span>
+        <span class="status-badge" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;padding:0.4em 0.9em;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:0.65rem;"></i>
+            @Model.Count(a => !a.IsResolved && a.Level == "Warning") Warning
+        </span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="padding-left:1.5rem;">Severity</th>
+                        <th>Device</th>
+                        <th>Message</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th style="text-align:right;padding-right:1.5rem;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="fa-solid fa-bell-slash"></i></div>
+                                    <h6>No alerts found</h6>
+                                    <p>Your network is running smoothly!</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @foreach (var alert in Model)
+                    {
+                        string levelClass = alert.Level == "Critical" ? "badge-critical"
+                                          : alert.Level == "Warning"  ? "badge-warning"
+                                          : "badge-info";
+                        <tr style="@(alert.IsResolved ? "opacity:0.45;" : "")">
+                            <td style="padding-left:1.5rem;">
+                                <span class="badge @levelClass">
+                                    @if (alert.Level == "Critical")
+                                    {
+                                        <i class="fa-solid fa-circle-exclamation me-1"></i>
+                                    }
+                                    else if (alert.Level == "Warning")
+                                    {
+                                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="fa-solid fa-circle-info me-1"></i>
+                                    }
+                                    @alert.Level
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="icon-box">
+                                        <i class="fa-solid @(alert.Device?.DeviceType?.Icon ?? "fa-server") fa-fw"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:0.82rem;font-weight:700;color:var(--gray-900);">@(alert.Device?.Name ?? "Unknown")</div>
+                                        <div class="font-mono" style="font-size:0.7rem;color:var(--gray-400);">@(alert.Device?.IPAddress ?? "")</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="max-width:320px;font-size:0.78rem;color:var(--gray-500);">@alert.Message</td>
+                            <td>
+                                <div style="font-size:0.78rem;font-weight:500;color:var(--gray-700);">@alert.CreatedAt.ToString("MMM dd, yyyy")</div>
+                                <div class="font-mono" style="font-size:0.7rem;color:var(--gray-400);">@alert.CreatedAt.ToString("HH:mm:ss")</div>
+                            </td>
+                            <td>
+                                @if (alert.IsResolved)
+                                {
+                                    <span class="badge badge-success">
+                                        <i class="fa-solid fa-check me-1"></i>Resolved
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-critical">
+                                        <i class="fa-solid fa-clock me-1"></i>Active
+                                    </span>
+                                }
+                            </td>
+                            <td style="text-align:right;padding-right:1.5rem;">
+                                @if (!alert.IsResolved)
+                                {
+                                    <form method="post" asp-action="Resolve" asp-route-id="@alert.Id" class="d-inline">
+                                        <button type="submit" class="btn btn-outline-success btn-sm">
+                                            <i class="fa-solid fa-check"></i> Resolve
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span style="font-size:0.72rem;color:var(--gray-300);">
+                                        @alert.ResolvedAt?.ToString("MMM dd HH:mm")
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
