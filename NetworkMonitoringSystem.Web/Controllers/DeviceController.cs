@@ -124,6 +124,65 @@ namespace NetworkMonitoringSystem.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        public class OnboardDeviceRequest
+        {
+            public string Name { get; set; }
+            public string Hostname { get; set; }
+            public string IPAddress { get; set; }
+            public string MacAddress { get; set; }
+            public string Vendor { get; set; }
+            public string Model { get; set; }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> OnboardAllDevices([FromBody] List<OnboardDeviceRequest> devices)
+        {
+            if (devices == null || !devices.Any()) return BadRequest("No devices provided.");
+
+            var defaultType   = await _context.DeviceTypes.FirstOrDefaultAsync();
+            var defaultStatus = await _context.DeviceStatuses.FirstOrDefaultAsync();
+            int onboardedCount = 0;
+
+            foreach (var d in devices)
+            {
+                if (await _context.Devices.AnyAsync(existing => existing.IPAddress == d.IPAddress))
+                {
+                    continue; // Skip existing
+                }
+
+                var device = new Device
+                {
+                    Name        = d.Name,
+                    Hostname    = d.Hostname,
+                    IPAddress   = d.IPAddress,
+                    MacAddress  = d.MacAddress ?? "",
+                    Vendor      = d.Vendor    ?? "Generic",
+                    Model       = d.Model     ?? "Unknown",
+                    Location    = "Auto Discovered",
+                    Department  = "Network Discovery",
+                    ContactPerson = "",
+                    DeviceTypeId  = defaultType?.Id  ?? 1,
+                    StatusId      = defaultStatus?.Id ?? 1,
+                    IsMonitoringEnabled = true
+                };
+
+                _context.Devices.Add(device);
+                onboardedCount++;
+            }
+
+            if (onboardedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = $"{onboardedCount} device(s) onboarded successfully!";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "No new devices were onboarded.";
+            }
+
+            return Json(new { success = true });
+        }
+
         // ── CRUD ─────────────────────────────────────────────────
         public async Task<IActionResult> Create()
         {

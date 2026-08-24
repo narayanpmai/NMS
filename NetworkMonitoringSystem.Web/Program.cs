@@ -75,19 +75,34 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Migrate and Seed Database
+// Migrate and Seed Database with retry policy for container startup
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    try
+    var maxRetries = 10;
+    var delay = TimeSpan.FromSeconds(5);
+    for (int retry = 1; retry <= maxRetries; retry++)
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        await context.Database.MigrateAsync();
-        await DbInitializer.SeedRolesAndAdminAsync(services);
-    }
-    catch (Exception ex)
-    {
-        Log.Error(ex, "An error occurred while migrating or seeding the database.");
+        try
+        {
+            var context = services.GetRequiredService<ApplicationDbContext>();
+            await context.Database.MigrateAsync();
+            await DbInitializer.SeedRolesAndAdminAsync(services);
+            Log.Information("Database migration and seeding completed successfully.");
+            break;
+        }
+        catch (Exception ex)
+        {
+            if (retry == maxRetries)
+            {
+                Log.Error(ex, "An error occurred while migrating or seeding the database after max retries.");
+            }
+            else
+            {
+                Log.Warning(ex, $"Database migration attempt {retry} failed. Retrying in {delay.TotalSeconds} seconds...");
+                await Task.Delay(delay);
+            }
+        }
     }
 }
 

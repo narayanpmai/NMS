@@ -115,14 +115,19 @@
     <!-- Discovery Results -->
     <div class="col-12 col-lg-8">
         <div class="card h-100">
-            <div class="card-header">
-                <h6 class="card-title">
-                    <i class="fa-solid fa-list-check me-2" style="color:var(--color-success);"></i>
-                    Discovered Devices
-                </h6>
-                <span id="resultCount" style="font-size:0.72rem;color:var(--gray-400);font-weight:500;">
-                    Awaiting scan...
-                </span>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="card-title mb-0">
+                        <i class="fa-solid fa-list-check me-2" style="color:var(--color-success);"></i>
+                        Discovered Devices
+                    </h6>
+                    <span id="resultCount" style="font-size:0.72rem;color:var(--gray-400);font-weight:500;">
+                        Awaiting scan...
+                    </span>
+                </div>
+                <button type="button" id="onboardAllBtn" class="btn btn-sm btn-success" style="display:none;" onclick="onboardAllNew()">
+                    <i class="fa-solid fa-plus me-1"></i> Onboard All New
+                </button>
             </div>
             <div class="card-body p-0" id="resultsContainer">
                 <!-- Empty state -->
@@ -240,6 +245,15 @@
         document.getElementById('emptyState').style.display = 'none';
         document.getElementById('resultsTable').style.display = 'block';
         document.getElementById('resultCount').textContent = `${devices.length} device(s) found`;
+
+        const newCount = devices.filter(d => d.isNew).length;
+        const onboardAllBtn = document.getElementById('onboardAllBtn');
+        if (newCount > 0) {
+            onboardAllBtn.style.display = 'inline-block';
+            onboardAllBtn.innerHTML = `<i class="fa-solid fa-plus me-1"></i> Onboard All New (${newCount})`;
+        } else {
+            onboardAllBtn.style.display = 'none';
+        }
     }
 
     // Onboard handler
@@ -253,6 +267,50 @@
         document.getElementById('ob_vendor').value   = d.vendor    || '';
         document.getElementById('ob_model').value    = d.model     || '';
         document.getElementById('onboardForm').submit();
+    }
+
+    // Onboard All handler
+    async function onboardAllNew() {
+        if (!window._lastDevices) return;
+        
+        const newDevices = window._lastDevices.filter(d => d.isNew);
+        if (newDevices.length === 0) return;
+
+        const btn = document.getElementById('onboardAllBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin me-1"></i> Onboarding...';
+
+        const payload = newDevices.map(d => ({
+            Name: d.name,
+            Hostname: d.hostname,
+            IPAddress: d.ipAddress,
+            MacAddress: d.macAddress || '',
+            Vendor: d.vendor || '',
+            Model: d.model || ''
+        }));
+
+        try {
+            const response = await fetch('/Device/OnboardAllDevices', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                window.location.href = '/Device/Index';
+            } else {
+                alert('Failed to onboard devices.');
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-plus me-1"></i> Onboard All New (${newDevices.length})`;
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            alert('An error occurred.');
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-plus me-1"></i> Onboard All New (${newDevices.length})`;
+        }
     }
 
     // Download CSV Log
