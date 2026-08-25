@@ -36,7 +36,7 @@ namespace NetworkMonitoringSystem.Domain.Entities
         public virtual Project Project { get; set; }
         
         // Configuration Compliance
-        public string DesiredConfiguration { get; set; }
+        public string DesiredConfiguration { get; set; } = string.Empty;
         public bool IsConfigCompliant { get; set; } = true;
     }
 }
