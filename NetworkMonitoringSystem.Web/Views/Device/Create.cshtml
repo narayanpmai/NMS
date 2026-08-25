@@ -89,7 +89,12 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label asp-for="Location" class="form-label">Location</label>
-                            <input asp-for="Location" class="form-control" placeholder="e.g. Server Room A, Rack 1" />
+                            <div class="input-group">
+                                <input asp-for="Location" class="form-control" id="deviceLocation" placeholder="e.g. Server Room A, Rack 1" />
+                                <button class="btn btn-outline-secondary" type="button" id="btnGetLocation" title="Get GPS Location">
+                                    <i class="fa-solid fa-location-crosshairs"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label asp-for="Department" class="form-label">Department</label>
@@ -132,4 +137,38 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        document.getElementById('btnGetLocation').addEventListener('click', function() {
+            if (navigator.geolocation) {
+                var btn = this;
+                var originalIcon = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+                
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var lat = position.coords.latitude;
+                    var lon = position.coords.longitude;
+                    
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data && data.display_name) {
+                                document.getElementById('deviceLocation').value = data.display_name;
+                            } else {
+                                document.getElementById('deviceLocation').value = lat + ", " + lon;
+                            }
+                            btn.innerHTML = originalIcon;
+                        })
+                        .catch(err => {
+                            document.getElementById('deviceLocation').value = lat + ", " + lon;
+                            btn.innerHTML = originalIcon;
+                        });
+                }, function(error) {
+                    alert("Error getting location: " + error.message);
+                    btn.innerHTML = originalIcon;
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        });
+    </script>
 }

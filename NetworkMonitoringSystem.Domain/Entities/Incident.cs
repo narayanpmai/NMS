@@ -14,8 +14,8 @@ namespace NetworkMonitoringSystem.Domain.Entities
         public virtual Device? Device { get; set; }
         public int? AlertId { get; set; }
         public virtual Alert? Alert { get; set; }
-        public string? AssignedToUserId { get; set; }
+        public string AssignedToUserId { get; set; }
         public DateTime? ResolvedAt { get; set; }
-        public string? RootCause { get; set; }
+        public string RootCause { get; set; }
     }
 }
