@@ -1,0 +1,33 @@
+@model NetworkMonitoringSystem.Domain.Entities.ZtpTemplate
+@{
+    ViewData["Title"] = "Create ZTP Template";
+}
+
+<div class="mb-4">
+    <h2><i class="bi bi-file-earmark-plus"></i> Create ZTP Template</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to ZTP</a>
+</div>
+
+<div class="card shadow-sm col-md-8">
+    <div class="card-body">
+        <form asp-action="CreateTemplate" method="post">
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label">Template Name</label>
+                <input asp-for="Name" class="form-control" placeholder="e.g. Access Switch Baseline" required />
+            </div>
+            
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label">Description</label>
+                <input asp-for="Description" class="form-control" />
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Content" class="form-label">Configuration Content</label>
+                <textarea asp-for="Content" class="form-control font-monospace" rows="15" placeholder="hostname {{HOSTNAME}}\nntp server {{NTP_SERVER}}" required></textarea>
+                <div class="form-text">Use <code>{{VARIABLE_NAME}}</code> syntax for variables to be replaced per device.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Template</button>
+        </form>
+    </div>
+</div>

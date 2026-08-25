@@ -188,46 +188,20 @@ namespace NetworkMonitoringSystem.Web.Controllers
                 });
             }
 
-            var routers = devices.Where(d => d.DeviceType?.Name == "Router" || d.Name.Contains("Router", StringComparison.OrdinalIgnoreCase)).ToList();
-            var firewalls = devices.Where(d => d.DeviceType?.Name == "Firewall" || d.Name.Contains("Firewall", StringComparison.OrdinalIgnoreCase)).ToList();
-            var switches = devices.Where(d => d.DeviceType?.Name == "Switch" || d.Name.Contains("Switch", StringComparison.OrdinalIgnoreCase)).ToList();
-            var servers = devices.Where(d => d.DeviceType?.Name == "Server" || d.DeviceType?.Name == "Workstation" || (!routers.Contains(d) && !firewalls.Contains(d) && !switches.Contains(d))).ToList();
+            var deviceLinks = await _context.DeviceLinks.Where(l => l.IsActive).ToListAsync();
 
-            var root = routers.FirstOrDefault() ?? firewalls.FirstOrDefault() ?? switches.FirstOrDefault() ?? devices.First();
-
-            foreach (var r in routers)
+            foreach (var link in deviceLinks)
             {
-                if (r.Id != root.Id)
+                links.Add(new
                 {
-                    links.Add(new { source = root.Id.ToString(), target = r.Id.ToString(), label = "WAN Link" });
-                }
-            }
-
-            foreach (var fw in firewalls)
-            {
-                if (fw.Id != root.Id)
-                {
-                    var parent = routers.FirstOrDefault() ?? root;
-                    links.Add(new { source = parent.Id.ToString(), target = fw.Id.ToString(), label = "Security Link" });
-                }
-            }
-
-            foreach (var sw in switches)
-            {
-                if (sw.Id != root.Id)
-                {
-                    var parent = firewalls.FirstOrDefault() ?? routers.FirstOrDefault() ?? root;
-                    links.Add(new { source = parent.Id.ToString(), target = sw.Id.ToString(), label = "Trunk Link" });
-                }
-            }
-
-            foreach (var s in servers)
-            {
-                if (s.Id != root.Id)
-                {
-                    var parent = switches.FirstOrDefault() ?? root;
-                    links.Add(new { source = parent.Id.ToString(), target = s.Id.ToString(), label = "Access Link" });
-                }
+                    source = link.SourceDeviceId.ToString(),
+                    target = link.TargetDeviceId.ToString(),
+                    label = link.LinkType,
+                    sourcePort = link.SourcePort,
+                    targetPort = link.TargetPort,
+                    bandwidth = link.BandwidthMbps,
+                    isActive = link.IsActive
+                });
             }
 
             return Json(new { nodes, links });

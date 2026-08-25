@@ -61,6 +61,10 @@ builder.Services.AddTransient<IPingService, PingService>();
 builder.Services.AddTransient<IDiscoveryService, DiscoveryService>();
 builder.Services.AddTransient<IReportService, ReportService>();
 builder.Services.AddTransient<IISPMonitoringService, ISPMonitoringService>();
+builder.Services.AddTransient<ISnmpService, SnmpService>();
+builder.Services.AddTransient<ITopologyDiscoveryService, TopologyDiscoveryService>();
+builder.Services.AddTransient<IConfigurationComplianceService, ConfigurationComplianceService>();
+builder.Services.AddTransient<IZtpService, ZtpService>();
 
 // Register Hangfire services
 builder.Services.AddHangfire(configuration => configuration
@@ -154,6 +158,21 @@ try
         "isp-connectivity-check",
         service => service.ProcessISPChecksAsync(CancellationToken.None),
         Cron.Minutely()
+    );
+    recurringJobManager.AddOrUpdate<ISnmpService>(
+        "device-snmp-poll",
+        service => service.PollDevicesAsync(),
+        Cron.Minutely()
+    );
+    recurringJobManager.AddOrUpdate<ITopologyDiscoveryService>(
+        "topology-discovery",
+        service => service.DiscoverTopologyAsync(),
+        "*/5 * * * *" // Every 5 minutes
+    );
+    recurringJobManager.AddOrUpdate<IConfigurationComplianceService>(
+        "configuration-compliance",
+        service => service.CheckComplianceAsync(),
+        Cron.Minutely() // Running minutely for demonstration purposes
     );
 }
 catch (Exception ex)

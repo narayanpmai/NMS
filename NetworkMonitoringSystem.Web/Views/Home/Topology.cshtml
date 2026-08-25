@@ -37,17 +37,16 @@
         transition: stroke 0.3s, stroke-width 0.3s;
     }
 
-    .link-line.active {
-        stroke: #38bdf8;
-        stroke-width: 3px;
-        stroke-dasharray: 4;
-        animation: dash 1s linear infinite;
-    }
-
     @@keyframes dash {
         to {
             stroke-dashoffset: -20;
         }
+    }
+
+    .link-line.inactive {
+        stroke: #ef4444;
+        stroke-dasharray: 4;
+        stroke-width: 1px;
     }
 
     .link-label {
@@ -302,16 +301,25 @@
                 .attr("class", "link-group");
 
             linkEnter.append("line")
-                .attr("class", d => {
-                    // Check if links are active
-                    return "link-line";
-                })
+                .attr("class", d => d.isActive ? "link-line" : "link-line inactive")
                 .attr("marker-end", "url(#arrow)");
 
             linkEnter.append("text")
                 .attr("class", "link-label")
                 .attr("dy", -5)
                 .text(d => d.label || "Link");
+            
+            linkEnter.append("text")
+                .attr("class", "link-label source-port")
+                .style("fill", "#38bdf8")
+                .style("font-size", "7px")
+                .text(d => d.sourcePort || "");
+                
+            linkEnter.append("text")
+                .attr("class", "link-label target-port")
+                .style("fill", "#38bdf8")
+                .style("font-size", "7px")
+                .text(d => d.targetPort || "");
 
             const allLinks = linkEnter.merge(linkG);
 
@@ -369,9 +377,17 @@
                     .attr("x2", d => d.target.x)
                     .attr("y2", d => d.target.y);
 
-                allLinks.selectAll(".link-label")
+                allLinks.selectAll(".link-label:not(.source-port):not(.target-port)")
                     .attr("x", d => (d.source.x + d.target.x) / 2)
                     .attr("y", d => (d.source.y + d.target.y) / 2);
+                    
+                allLinks.selectAll(".source-port")
+                    .attr("x", d => d.source.x + (d.target.x - d.source.x) * 0.25)
+                    .attr("y", d => d.source.y + (d.target.y - d.source.y) * 0.25);
+                    
+                allLinks.selectAll(".target-port")
+                    .attr("x", d => d.source.x + (d.target.x - d.source.x) * 0.75)
+                    .attr("y", d => d.source.y + (d.target.y - d.source.y) * 0.75);
 
                 allNodes.attr("transform", d => `translate(${d.x},${d.y})`);
             });

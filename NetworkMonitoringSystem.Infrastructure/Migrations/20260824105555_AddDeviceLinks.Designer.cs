@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetworkMonitoringSystem.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using NetworkMonitoringSystem.Infrastructure.Data;
 namespace NetworkMonitoringSystem.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260824105555_AddDeviceLinks")]
+    partial class AddDeviceLinks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -282,38 +285,6 @@ namespace NetworkMonitoringSystem.Infrastructure.Migrations
                     b.ToTable("AuditLogs");
                 });
 
-            modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.ConfigurationBackup", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("BackupDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ConfigContent")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ConfigVersion")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DeviceId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsCompliant")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DeviceId");
-
-                    b.ToTable("ConfigurationBackups");
-                });
-
             modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.Device", b =>
                 {
                     b.Property<int>("Id")
@@ -337,10 +308,6 @@ namespace NetworkMonitoringSystem.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("DesiredConfiguration")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("DeviceTypeId")
                         .HasColumnType("int");
 
@@ -354,9 +321,6 @@ namespace NetworkMonitoringSystem.Infrastructure.Migrations
                     b.Property<string>("IPAddress")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsConfigCompliant")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsMonitoringEnabled")
                         .HasColumnType("bit");
@@ -829,63 +793,6 @@ namespace NetworkMonitoringSystem.Infrastructure.Migrations
                     b.ToTable("SlaRecords");
                 });
 
-            modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.ZtpProfile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("MacAddress")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("VariablesJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("ZtpTemplateId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ZtpTemplateId");
-
-                    b.ToTable("ZtpProfiles");
-                });
-
-            modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.ZtpTemplate", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ZtpTemplates");
-                });
-
             modelBuilder.Entity("NetworkMonitoringSystem.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -1020,17 +927,6 @@ namespace NetworkMonitoringSystem.Infrastructure.Migrations
                     b.Navigation("Device");
                 });
 
-            modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.ConfigurationBackup", b =>
-                {
-                    b.HasOne("NetworkMonitoringSystem.Domain.Entities.Device", "Device")
-                        .WithMany()
-                        .HasForeignKey("DeviceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Device");
-                });
-
             modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.Device", b =>
                 {
                     b.HasOne("NetworkMonitoringSystem.Domain.Entities.DeviceType", "DeviceType")
@@ -1110,17 +1006,6 @@ namespace NetworkMonitoringSystem.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Device");
-                });
-
-            modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.ZtpProfile", b =>
-                {
-                    b.HasOne("NetworkMonitoringSystem.Domain.Entities.ZtpTemplate", "Template")
-                        .WithMany()
-                        .HasForeignKey("ZtpTemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Template");
                 });
 
             modelBuilder.Entity("NetworkMonitoringSystem.Domain.Entities.Project", b =>

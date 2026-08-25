@@ -1,0 +1,107 @@
+@model NetworkMonitoringSystem.Domain.Entities.Device
+@{
+    ViewData["Title"] = "Configuration Compliance";
+    var backups = ViewBag.Backups as List<NetworkMonitoringSystem.Domain.Entities.ConfigurationBackup>;
+    var latestBackup = backups?.FirstOrDefault();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-file-earmark-code text-primary"></i> @Model.Name - Compliance</h2>
+        <p class="text-secondary mb-0">Manage intent-based configuration rules and view compliance drifts.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Devices
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Intent (Desired Configuration)</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="UpdateConfigCompliance" method="post">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Configuration Snippet</label>
+                        <textarea name="desiredConfiguration" class="form-control font-monospace" rows="10" placeholder="e.g. hostname CoreRouter-01\nntp server 10.0.0.5">@Model.DesiredConfiguration</textarea>
+                        <div class="form-text">Enter the exact configuration lines that MUST be present on the device.</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Intent</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Recent Backups</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                @if (backups != null && backups.Any())
+                {
+                    foreach (var b in backups)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">Version @b.ConfigVersion</div>
+                                <small class="text-muted">@b.BackupDate.ToString("g")</small>
+                            </div>
+                            @if (b.IsCompliant)
+                            {
+                                <span class="badge bg-success rounded-pill">Compliant</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger rounded-pill">Drift Detected</span>
+                            }
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li class="list-group-item text-muted">No backups found yet.</li>
+                }
+            </ul>
+        </div>
+    </div>
+    
+    <div class="col-md-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Latest Running Configuration</h5>
+                @if (latestBackup != null)
+                {
+                    if (latestBackup.IsCompliant)
+                    {
+                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Compliant</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger"><i class="bi bi-exclamation-triangle"></i> Drift Detected</span>
+                    }
+                }
+                else
+                {
+                    <span class="badge bg-secondary">Unknown</span>
+                }
+            </div>
+            <div class="card-body p-0">
+                @if (latestBackup != null)
+                {
+                    <pre class="p-3 m-0 font-monospace bg-light" style="height: 100%; min-height: 500px; overflow-y: auto;">@latestBackup.ConfigContent</pre>
+                }
+                else
+                {
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-clock-history fs-1"></i>
+                        <p class="mt-2">Awaiting first configuration pull.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

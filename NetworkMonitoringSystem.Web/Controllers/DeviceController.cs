@@ -192,7 +192,7 @@ namespace NetworkMonitoringSystem.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Name,Hostname,IPAddress,MacAddress,Vendor,Model,Location,Department,DeviceTypeId,StatusId")] Device device)
+        public async Task<IActionResult> Create([Bind("Name,Hostname,IPAddress,MacAddress,Vendor,Model,Location,Department,DeviceTypeId,StatusId,SnmpVersion,SnmpCommunity,SnmpPort")] Device device)
         {
             ModelState.Remove(nameof(Device.DeviceType));
             ModelState.Remove(nameof(Device.Status));
@@ -230,7 +230,7 @@ namespace NetworkMonitoringSystem.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Hostname,IPAddress,MacAddress,Vendor,Model,Location,Department,DeviceTypeId,StatusId")] Device device)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Hostname,IPAddress,MacAddress,Vendor,Model,Location,Department,DeviceTypeId,StatusId,SnmpVersion,SnmpCommunity,SnmpPort")] Device device)
         {
             if (id != device.Id) return NotFound();
 
@@ -258,6 +258,9 @@ namespace NetworkMonitoringSystem.Web.Controllers
                     existingDevice.Department   = device.Department ?? "";
                     existingDevice.DeviceTypeId = device.DeviceTypeId;
                     existingDevice.StatusId     = device.StatusId;
+                    existingDevice.SnmpVersion   = device.SnmpVersion;
+                    existingDevice.SnmpCommunity = device.SnmpCommunity;
+                    existingDevice.SnmpPort      = device.SnmpPort;
 
                     _context.Update(existingDevice);
                     await _context.SaveChangesAsync();
@@ -271,6 +274,43 @@ namespace NetworkMonitoringSystem.Web.Controllers
             }
             await PopulateDropDowns();
             return View(device);
+        }
+
+        // ── Configuration Compliance ──────────────────────────────
+        public async Task<IActionResult> ConfigCompliance(int? id)
+        {
+            if (id == null) return NotFound();
+
+            var device = await _context.Devices.FindAsync(id);
+            if (device == null) return NotFound();
+
+            var backups = await _context.ConfigurationBackups
+                .Where(b => b.DeviceId == id)
+                .OrderByDescending(b => b.BackupDate)
+                .Take(5)
+                .ToListAsync();
+
+            ViewBag.Backups = backups;
+            return View(device);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateConfigCompliance(int id, string desiredConfiguration)
+        {
+            var device = await _context.Devices.FindAsync(id);
+            if (device == null) return NotFound();
+
+            device.DesiredConfiguration = desiredConfiguration;
+            
+            // Assume it's compliant until the next background check determines otherwise
+            device.IsConfigCompliant = true; 
+            
+            _context.Update(device);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Desired Configuration for '{device.Name}' updated.";
+            return RedirectToAction(nameof(ConfigCompliance), new { id = device.Id });
         }
 
         // ── Delete ─────────────────────────────────────────────

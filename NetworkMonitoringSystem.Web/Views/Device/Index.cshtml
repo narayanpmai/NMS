@@ -67,7 +67,13 @@
                                         <i class="fa-solid @(device.DeviceType?.Icon ?? "fa-server") fa-fw"></i>
                                     </div>
                                     <div>
-                                        <div style="font-size:0.82rem;font-weight:700;color:var(--gray-900);">@device.Name</div>
+                                        <div style="font-size:0.82rem;font-weight:700;color:var(--gray-900);">
+                                            @device.Name
+                                            @if (!device.IsConfigCompliant)
+                                            {
+                                                <span class="badge bg-danger ms-1" style="font-size: 0.6rem;" title="Configuration Drift Detected!">Drift</span>
+                                            }
+                                        </div>
                                         <div style="font-size:0.72rem;color:var(--gray-400);">@device.Hostname</div>
                                     </div>
                                 </div>
@@ -108,7 +114,13 @@
                                     @* Edit *@
                                     <a asp-action="Edit" asp-route-id="@device.Id"
                                        class="btn btn-sm btn-outline-primary" title="Edit Device">
-                                        <i class="fa-solid fa-pen me-1"></i> Edit
+                                        <i class="fa-solid fa-pen"></i>
+                                    </a>
+
+                                    @* Compliance *@
+                                    <a asp-action="ConfigCompliance" asp-route-id="@device.Id"
+                                       class="btn btn-sm btn-outline-secondary" title="Configuration Compliance">
+                                        <i class="fa-solid fa-file-code"></i>
                                     </a>
 
                                     @* Delete *@

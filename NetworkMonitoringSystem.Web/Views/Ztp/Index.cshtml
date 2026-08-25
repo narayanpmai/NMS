@@ -1,0 +1,94 @@
+@{
+    ViewData["Title"] = "Zero-Touch Provisioning (ZTP)";
+    var templates = ViewBag.Templates as List<NetworkMonitoringSystem.Domain.Entities.ZtpTemplate>;
+    var profiles = ViewBag.Profiles as List<NetworkMonitoringSystem.Domain.Entities.ZtpProfile>;
+}
+
+<div class="page-header mb-4 d-flex justify-content-between align-items-center">
+    <div>
+        <h5>Zero-Touch Provisioning</h5>
+        <p class="text-secondary mb-0">Manage configuration templates and device profiles for automatic network onboarding.</p>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success"><i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> @TempData["ErrorMessage"]</div>
+}
+
+<div class="row">
+    <!-- Templates -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-text text-primary"></i> ZTP Templates</h5>
+                <a asp-action="CreateTemplate" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus"></i> New Template</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @if (templates != null && templates.Any())
+                    {
+                        foreach (var template in templates)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-bold">@template.Name</div>
+                                    <small class="text-muted">@template.Description</small>
+                                </div>
+                                <form asp-action="DeleteTemplate" asp-route-id="@template.Id" method="post" onsubmit="return confirm('Delete this template?');">
+                                    <button class="btn btn-sm btn-outline-danger border-0"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </li>
+                        }
+                    }
+                    else
+                    {
+                        <li class="list-group-item text-muted text-center py-4">No templates found.</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profiles -->
+    <div class="col-md-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-hdd-network text-success"></i> Device Profiles</h5>
+                <a asp-action="CreateProfile" class="btn btn-sm btn-outline-success"><i class="bi bi-plus"></i> New Profile</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @if (profiles != null && profiles.Any())
+                    {
+                        foreach (var profile in profiles)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-bold font-monospace">@profile.MacAddress</div>
+                                    <small class="text-muted">Template: @profile.Template?.Name</small>
+                                    <div class="mt-1">
+                                        <a href="/api/ztp/config/@profile.MacAddress" target="_blank" class="badge bg-secondary text-decoration-none">
+                                            <i class="bi bi-link-45deg"></i> Test Endpoint
+                                        </a>
+                                    </div>
+                                </div>
+                                <form asp-action="DeleteProfile" asp-route-id="@profile.Id" method="post" onsubmit="return confirm('Delete this profile?');">
+                                    <button class="btn btn-sm btn-outline-danger border-0"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </li>
+                        }
+                    }
+                    else
+                    {
+                        <li class="list-group-item text-muted text-center py-4">No profiles found.</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

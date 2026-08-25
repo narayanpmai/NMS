@@ -53,6 +53,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Ztp" ? "active" : "")"
+                           asp-controller="Ztp" asp-action="Index">
+                            <div class="nav-icon"><i class="fa-solid fa-magic fa-fw"></i></div>
+                            Zero-Touch Provisioning
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Home" && ViewContext.RouteData.Values["action"]?.ToString() == "Map" ? "active" : "")"
                            asp-controller="Home" asp-action="Map">
                             <div class="nav-icon"><i class="fa-solid fa-map-location-dot fa-fw"></i></div>

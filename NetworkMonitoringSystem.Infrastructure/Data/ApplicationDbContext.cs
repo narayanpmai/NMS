@@ -27,6 +27,27 @@ namespace NetworkMonitoringSystem.Infrastructure.Data
         public DbSet<NetworkMonitoringSystem.Domain.Entities.AuditLog> AuditLogs { get; set; }
         public DbSet<NetworkMonitoringSystem.Domain.Entities.ISP> ISPs { get; set; }
         public DbSet<NetworkMonitoringSystem.Domain.Entities.Project> Projects { get; set; }
+        public DbSet<NetworkMonitoringSystem.Domain.Entities.DeviceLink> DeviceLinks { get; set; }
+        public DbSet<NetworkMonitoringSystem.Domain.Entities.ConfigurationBackup> ConfigurationBackups { get; set; }
+        public DbSet<NetworkMonitoringSystem.Domain.Entities.ZtpTemplate> ZtpTemplates { get; set; }
+        public DbSet<NetworkMonitoringSystem.Domain.Entities.ZtpProfile> ZtpProfiles { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<NetworkMonitoringSystem.Domain.Entities.DeviceLink>()
+                .HasOne(dl => dl.SourceDevice)
+                .WithMany()
+                .HasForeignKey(dl => dl.SourceDeviceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<NetworkMonitoringSystem.Domain.Entities.DeviceLink>()
+                .HasOne(dl => dl.TargetDevice)
+                .WithMany()
+                .HasForeignKey(dl => dl.TargetDeviceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = new CancellationToken())
         {

@@ -24,10 +24,19 @@ namespace NetworkMonitoringSystem.Domain.Entities
 
         public bool IsMonitoringEnabled { get; set; } = true;
         
+        // SNMP Telemetry Configuration
+        public string SnmpVersion { get; set; } = "v2c"; // v1, v2c, v3
+        public string SnmpCommunity { get; set; } = "public";
+        public int SnmpPort { get; set; } = 161;
+        
         // Simulates whether the device has internet access allowed via network firewall/router
         public bool HasInternetAccess { get; set; } = true;
 
         public int? ProjectId { get; set; }
         public virtual Project Project { get; set; }
+        
+        // Configuration Compliance
+        public string DesiredConfiguration { get; set; }
+        public bool IsConfigCompliant { get; set; } = true;
     }
 }

@@ -1,0 +1,36 @@
+@model NetworkMonitoringSystem.Domain.Entities.ZtpProfile
+@{
+    ViewData["Title"] = "Create ZTP Profile";
+}
+
+<div class="mb-4">
+    <h2><i class="bi bi-hdd-network"></i> Create ZTP Profile</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to ZTP</a>
+</div>
+
+<div class="card shadow-sm col-md-8">
+    <div class="card-body">
+        <form asp-action="CreateProfile" method="post">
+            <div class="mb-3">
+                <label asp-for="MacAddress" class="form-label">MAC Address</label>
+                <input asp-for="MacAddress" class="form-control font-monospace" placeholder="AA:BB:CC:DD:EE:FF" required />
+                <div class="form-text">The exact MAC address the device uses to request its configuration.</div>
+            </div>
+            
+            <div class="mb-3">
+                <label asp-for="ZtpTemplateId" class="form-label">ZTP Template</label>
+                <select asp-for="ZtpTemplateId" class="form-select" asp-items="ViewBag.Templates" required>
+                    <option value="">-- Select Template --</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="VariablesJson" class="form-label">Variables (JSON)</label>
+                <textarea asp-for="VariablesJson" class="form-control font-monospace" rows="6" placeholder="{&quot;HOSTNAME&quot;: &quot;Switch-01&quot;, &quot;NTP_SERVER&quot;: &quot;10.0.0.1&quot;}"></textarea>
+                <div class="form-text">A valid JSON object mapping template variables to device-specific values.</div>
+            </div>
+
+            <button type="submit" class="btn btn-success">Save Profile</button>
+        </form>
+    </div>
+</div>
